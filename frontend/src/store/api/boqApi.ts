@@ -76,6 +76,10 @@ export const boqApi = baseApi.injectEndpoints({
       query: (boqId) => `/api/v1/boq/${boqId}/items/`,
       providesTags: (_r, _e, boqId) => [{ type: 'BoqItem', id: boqId }],
     }),
+    getBoqItem: builder.query<BOQItem, string>({
+      query: (id) => `/api/v1/items/${id}/`,
+      providesTags: (_r, _e, id) => [{ type: 'BoqItem', id }],
+    }),
     createBoqItem: builder.mutation<BOQItem, { boqId: string; data: BOQItemWrite }>({
       query: ({ boqId, data }) => ({
         url: `/api/v1/boq/${boqId}/items/`,
@@ -164,4 +168,5 @@ export const {
   useDeleteBoqItemMutation,
   usePublishBoqMutation,
   useMarkBoqReadyMutation,
+  useGetBoqItemQuery,
 } = boqApi;

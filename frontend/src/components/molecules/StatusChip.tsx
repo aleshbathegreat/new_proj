@@ -3,7 +3,7 @@ import Chip from '@mui/material/Chip';
 type ChipColor = 'default' | 'success' | 'warning' | 'error' | 'info' | 'primary' | 'secondary';
 
 const statusColorMap: Record<string, ChipColor> = {
-  PLANNED: 'default',
+  PLANNING: 'default',
   ACTIVE: 'success',
   ON_HOLD: 'warning',
   COMPLETED: 'success',

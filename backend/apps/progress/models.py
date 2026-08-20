@@ -29,6 +29,53 @@ class ProgressTaskTemplate(BaseModel):
         return f'{self.name} ({self.key})'
 
 
+class KPICategory(BaseModel):
+    """
+    Admin-defined grouping of subtasks (SiteProgressTask rows) for one site.
+    Per-site, not shared across sites. Distinct from kpi_schema/kpi_values,
+    which define per-entry custom fields on an individual subtask.
+    """
+
+    site = models.ForeignKey(Site, related_name='kpi_categories', on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default='')
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+        unique_together = [('site', 'name')]
+        verbose_name_plural = 'KPI categories'
+
+    def __str__(self):
+        return f'{self.site.name}: {self.name}'
+
+class ModuleCatalogEntry(BaseModel):
+    """Global, cross-site catalog of Module names — grows automatically
+    whenever a new Module name is used anywhere, powers autocomplete."""
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Module catalog entries'
+
+    def __str__(self):
+        return self.name
+
+
+class ItemCatalogEntry(BaseModel):
+    """Global, cross-site catalog of Item names — grows automatically
+    whenever a new Item name is used anywhere, powers autocomplete."""
+    name = models.CharField(max_length=255, unique=True)
+    default_unit = models.CharField(max_length=50, blank=True, default='')
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Item catalog entries'
+
+    def __str__(self):
+        return self.name
+
 class SiteProgressTask(BaseModel):
     """
     Progress tasks enabled for a specific site, optionally linked to a BOQ line.
@@ -39,6 +86,14 @@ class SiteProgressTask(BaseModel):
     template = models.ForeignKey(
         ProgressTaskTemplate,
         related_name='site_tasks',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    kpi_category = models.ForeignKey(
+        KPICategory,
+        related_name='subtasks',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

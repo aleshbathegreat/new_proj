@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Box from '@mui/material/Box';
@@ -15,7 +15,7 @@ import { useGetDistrictsQuery, useGetTownsQuery } from '@/store/api/provinceApi'
 const siteSchema = z.object({
   project_id: z.string().min(1, 'Project is required'),
   district_id: z.string().min(1, 'District is required'),
-  town_id: z.string().min(1, 'Town is required'),
+  town_id: z.string().optional(),
   name: z.string().min(1, 'Site name is required'),
   location: z.string().optional(),
   latitude: z.coerce.number().optional(),
@@ -41,12 +41,8 @@ export default function SiteForm({
   const { data: projectsData } = useGetProjectsQuery({ page_size: 100 });
   const projects = projectsData?.data ?? [];
 
-  const { control, handleSubmit, setValue } = useForm<
-    z.input<typeof siteSchema>,
-    unknown,
-    z.output<typeof siteSchema>
-  >({
-    resolver: zodResolver(siteSchema),
+  const { control, handleSubmit, setValue } = useForm<SiteFormValues>({
+    resolver: zodResolver(siteSchema) as Resolver<SiteFormValues>,
     defaultValues,
   });
 
@@ -90,8 +86,10 @@ export default function SiteForm({
   }, [selectedDistrictId, setValue]);
 
   const submitHandler = (data: SiteFormValues) => {
-    const { district_id: _districtId, ...rest } = data;
-    onSubmit(rest);
+    onSubmit({
+      ...data,
+      town_id: data.town_id || undefined,
+    });
   };
 
   return (
@@ -113,7 +111,7 @@ export default function SiteForm({
       <FormField
         name="town_id"
         control={control}
-        label={selectedDistrictId ? 'Town' : 'Select a district first'}
+        label={selectedDistrictId ? 'Town (optional)' : 'Select a district first'}
         variant="select"
         options={towns.map((t) => ({ label: t.name, value: t.id }))}
       />

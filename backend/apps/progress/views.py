@@ -2,11 +2,21 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
 from apps.core.permissions import HasModulePermission
-from .models import DailyProgressEntry, ProgressTaskTemplate, SiteProgressTask
+from .models import (
+    DailyProgressEntry,
+    ProgressTaskTemplate,
+    SiteProgressTask,
+    KPICategory,
+    ModuleCatalogEntry,
+    ItemCatalogEntry,
+)
 from .serializers import (
     DailyProgressEntrySerializer,
     ProgressTaskTemplateSerializer,
     SiteProgressTaskSerializer,
+    KPICategorySerializer,
+    ModuleCatalogEntrySerializer,
+    ItemCatalogEntrySerializer,
 )
 
 
@@ -61,6 +71,33 @@ class SiteProgressTaskViewSet(viewsets.ModelViewSet):
             qs = qs.filter(is_active=False)
         return qs
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        ItemCatalogEntry.objects.get_or_create(
+            name=instance.name,
+            defaults={'default_unit': instance.unit},
+        )
+
+class KPICategoryViewSet(viewsets.ModelViewSet):
+    """Admin-defined, per-site groupings of subtasks."""
+
+    serializer_class = KPICategorySerializer
+    permission_classes = [IsAuthenticated, HasModulePermission]
+    module_key = 'daily-progress'
+
+    def get_queryset(self):
+        qs = KPICategory.objects.select_related('site').prefetch_related('subtasks')
+        site_id = self.request.query_params.get('site_id')
+        if site_id:
+            qs = qs.filter(site_id=site_id)
+        return qs
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        ModuleCatalogEntry.objects.get_or_create(
+            name=instance.name,
+            defaults={'description': instance.description},
+        )
 
 class DailyProgressEntryViewSet(viewsets.ModelViewSet):
     queryset = DailyProgressEntry.objects.select_related(
@@ -107,3 +144,27 @@ class DailyProgressEntryViewSet(viewsets.ModelViewSet):
         site_task = instance.site_task
         instance.delete()
         site_task.sync_boq_actual()
+
+
+class ModuleCatalogViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ModuleCatalogEntrySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = ModuleCatalogEntry.objects.all()
+        q = self.request.query_params.get('q')
+        if q:
+            qs = qs.filter(name__icontains=q)
+        return qs
+
+
+class ItemCatalogViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ItemCatalogEntrySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = ItemCatalogEntry.objects.all()
+        q = self.request.query_params.get('q')
+        if q:
+            qs = qs.filter(name__icontains=q)
+        return qs

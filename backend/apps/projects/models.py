@@ -6,7 +6,7 @@ from apps.provinces.models import Province
 
 class Project(BaseModel):
     STATUS_CHOICES = [
-        ('PLANNED', 'Planned'),
+        ('PLANNING', 'Planning'),
         ('ACTIVE', 'Active'),
         ('ON_HOLD', 'On Hold'),
         ('COMPLETED', 'Completed'),
@@ -19,7 +19,7 @@ class Project(BaseModel):
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
     budget = models.DecimalField(max_digits=14, decimal_places=2, blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PLANNED')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PLANNING')
 
     def __str__(self):
         return self.name

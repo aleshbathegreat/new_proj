@@ -339,7 +339,7 @@ export default function SiteDetailPage() {
             >
               <Box>
                 <Typography>
-                  {boq.template || 'BOQ'} — v{boq.version} · {boq.items_count} items
+                  {boq.template_name || 'BOQ'} — v{boq.version} · {boq.items_count} items
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   TotalDDP PKR {Number(boq.total_amount || 0).toLocaleString()}
@@ -362,7 +362,7 @@ export default function SiteDetailPage() {
 
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
-          Recent Daily Progress
+          Recent Work Progress
         </Typography>
         <Typography variant="body2" color="text.secondary">
           No progress entries recorded for this site yet.

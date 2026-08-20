@@ -30,6 +30,7 @@ import {
 import type { DailyProgressEntry, SiteProgressTask } from '@/types/dailyProgress';
 import { formatDate } from '@/utils/formatDate';
 
+
 const progressSchema = z.object({
   site_id: z.string().uuid('Select a site'),
   site_task_id: z.string().uuid('Select a task'),
@@ -103,7 +104,7 @@ export default function DailyProgressPage() {
   const overPlan = planned > 0 && projectedCumulative > planned;
 
   useEffect(() => {
-    document.title = 'Daily Progress | SC-GIMS';
+    document.title = 'Work Progress | SC-GIMS';
   }, []);
 
   useEffect(() => {
@@ -159,7 +160,7 @@ export default function DailyProgressPage() {
       >
         <Box>
           <Typography variant="h5" component="h1">
-            Daily Progress
+            Work Progress
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Log quantity against admin-configured site tasks (key/value KPIs).
@@ -416,7 +417,15 @@ export default function DailyProgressPage() {
                   headerName: 'BOQ Item',
                   flex: 0.9,
                   renderCell: ({ row }: { row: DailyProgressEntry }) =>
-                    row.boq_item_code || '—',
+                    row.boq_item_id ? (
+                      <Link
+                        href={`/boq-items/${row.boq_item_id}`}
+                      >
+                        {row.boq_item_code || 'View item'}
+                      </Link>
+                    ) : (
+                      '—'
+                    ),
                 },
                 {
                   field: 'quantity',

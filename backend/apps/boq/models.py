@@ -2,8 +2,25 @@ from django.db import models
 
 from apps.core.models import BaseModel
 from apps.projects.models import Project
+from django.conf import settings
 
+class BOQTemplate(BaseModel):
+    SOURCE_CHOICES = [('MANUAL', 'Manual'), ('IMPORT', 'Excel Import')]
 
+    name = models.CharField(max_length=255)
+    code = models.SlugField(max_length=50, unique=True)
+    description = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='MANUAL')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+
+    # [{ "key": "hs_code", "label": "HS Code", "data_type": "text",
+    #    "unit": null, "required": false, "default": "", "options": [], "sort_order": 1 }, ...]
+    fields = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['name']
+        
 class BOQ(BaseModel):
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
@@ -17,7 +34,8 @@ class BOQ(BaseModel):
     site = models.ForeignKey('sites.Site', related_name='boqs', on_delete=models.PROTECT)
     version = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
-    template = models.CharField(max_length=100, blank=True, null=True)
+    template = models.ForeignKey(
+        BOQTemplate, related_name='boqs', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"BOQ v{self.version} - {self.project.name}"
@@ -93,8 +111,6 @@ class BOQItem(BaseModel):
 
     class Meta:
         ordering = ['no', 'item']
-        unique_together = [('boq', 'item', 'no')]
-
     # --- Derived (Excel formulas) ---
 
     @property
@@ -138,3 +154,41 @@ class BOQItem(BaseModel):
 
     def __str__(self):
         return f"{self.item} - {self.item_description[:30]}"
+
+
+class BOQSurveyData(BaseModel):
+    """
+    Stores district/site-wise distribution of BOQ items.
+    Example: BOQ has 570 PTZ cameras total.
+             Survey breaks it down: East=200, West=250, South=120.
+    """
+    boq = models.ForeignKey(BOQ, related_name='survey_data', on_delete=models.CASCADE)
+    
+    # Metadata about the survey
+    level = models.CharField(
+        max_length=20,
+        choices=[
+            ('DISTRICT', 'District-level breakdown only'),
+            ('SITE', 'Site-level breakdown (implies districts too)'),
+        ],
+        help_text='Whether survey goes down to Site level or just District'
+    )
+    file_name = models.CharField(max_length=255, blank=True)
+    
+    # The actual parsed data (see PHASE 2 for structure)
+    data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Parsed survey: {items: [{item_id, item_type, model_name, allocations: [{district, site, qty, ...}]}]}'
+    )
+    
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'BOQ Survey Data'
+        unique_together = [['boq']]  # One survey per BOQ
+
+    def __str__(self):
+        return f'Survey for {self.boq} ({self.level})'

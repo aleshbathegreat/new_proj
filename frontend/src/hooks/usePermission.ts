@@ -8,7 +8,8 @@ export function usePermission() {
   const siteIds = user?.siteIds ?? [];
 
   const hasRole = (role: string) => roles.includes(role);
-  const hasAnyRole = (allowedRoles: string[]) => allowedRoles.some((role) => roles.includes(role));
+  const hasAnyRole = (allowedRoles: string[]) =>
+    roles.includes('SYSTEM_ADMIN') || allowedRoles.some((role) => roles.includes(role));
 
   return { roles, provinceIds, siteIds, hasRole, hasAnyRole };
 }

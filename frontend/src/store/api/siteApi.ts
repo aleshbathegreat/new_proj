@@ -6,7 +6,7 @@ export const sitesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getSites: builder.query<
       ListResponse<Site>,
-      (ListParams & { project_id?: string; town_id?: string; status?: string }) | void
+      (ListParams & { project_id?: string; town_id?: string; district_id?: string; status?: string }) | void
     >({
       query: (params) => ({
         url: '/api/v1/sites/',

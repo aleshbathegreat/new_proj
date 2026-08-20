@@ -38,7 +38,11 @@ export default function ProvinceDistrictsPage() {
   const router = useRouter();
   const provinceId = params.id as string;
 
-  const { data: province, isError: provinceError } = useGetProvinceQuery(provinceId);
+  const {
+    data: province,
+    isError: provinceError,
+    isLoading: isProvinceLoading,
+  } = useGetProvinceQuery(provinceId);
   const { data: districtsData } = useGetDistrictsQuery({ province_id: provinceId, page_size: 200 });
   const { data: townsData } = useGetTownsQuery({ province_id: provinceId, page_size: 500 });
 
@@ -58,21 +62,6 @@ export default function ProvinceDistrictsPage() {
   useEffect(() => {
     document.title = province ? `${province.name} Districts | SC-GIMS` : 'Districts | SC-GIMS';
   }, [province]);
-
-  if (provinceError || !province) {
-    return (
-      <Box>
-        <Typography variant="h6">Province not found.</Typography>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => router.push('/admin/provinces')}
-          sx={{ mt: 2 }}
-        >
-          Back to Provinces
-        </Button>
-      </Box>
-    );
-  }
 
   const openCreate = () => {
     setEditingId(null);
@@ -128,6 +117,38 @@ export default function ProvinceDistrictsPage() {
     }
     setDistrictToDelete(null);
   };
+
+  if (provinceError) {
+    return (
+      <Box>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => router.push('/admin/provinces')}
+          sx={{ mb: 2 }}
+        >
+          Back to Provinces
+        </Button>
+
+        <Alert severity="error">Failed to load province details.</Alert>
+      </Box>
+    );
+  }
+
+  if (isProvinceLoading || !province) {
+    return (
+      <Box>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => router.push('/admin/provinces')}
+          sx={{ mb: 2 }}
+        >
+          Back to Provinces
+        </Button>
+
+        <Typography>Loading province...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -259,12 +280,7 @@ export default function ProvinceDistrictsPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={!!districtToDelete}
-        onClose={() => setDistrictToDelete(null)}
-        maxWidth="xs"
-        fullWidth
-      >
+      <Dialog open={!!districtToDelete} onClose={() => setDistrictToDelete(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Delete District</DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 3 }}>

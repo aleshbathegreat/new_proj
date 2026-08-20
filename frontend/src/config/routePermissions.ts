@@ -15,4 +15,5 @@ export const ROUTE_PERMISSIONS: Record<string, string[]> = {
   '/ipc': ['HOD', 'DIR', 'SYSTEM_ADMIN', 'AUDITOR'],
   '/inventory': ['HOD', 'SITE_ENG', 'CONTRACTOR', 'QA', 'SYSTEM_ADMIN', 'AUDITOR'],
   '/fac-readiness': ['HOD', 'DIR', 'SYSTEM_ADMIN', 'AUDITOR'],
+  '/admin/boq-templates': ['SYSTEM_ADMIN', 'HOD', 'DIR'],
 };

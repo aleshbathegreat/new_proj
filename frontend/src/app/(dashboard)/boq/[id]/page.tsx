@@ -33,6 +33,10 @@ import {
   usePublishBoqMutation,
 } from '@/store/api/boqApi';
 import type { BOQItemWrite } from '@/types/boq';
+import { useGetBOQSurveyDataQuery, useDeleteBOQSurveyDataMutation } from '@/store/api/boqSurveyApi';
+import BOQSurveyUploader from '@/components/molecules/BOQSurveyUploader';
+import BOQSurveyViewer from '@/components/molecules/BOQSurveyViewer';
+import type { SurveyFilterOptions } from '@/types/boqSurvey';
 
 const ADD_FIELDS: Array<[keyof BOQItemWrite, string, boolean?]> = [
   ['pc1', 'PC1'],
@@ -89,6 +93,13 @@ export default function BOQDetailPage() {
   const { hasAnyRole } = usePermission();
   const { canCreate, canUpdate } = useCrudPermission('/boq');
   const canPublish = hasAnyRole(['HOD', 'DIR', 'SYSTEM_ADMIN']);
+  const [surveyFilter, setSurveyFilter] = useState<SurveyFilterOptions>({ view: 'ALL' });
+
+  const { data: surveyData, isLoading:loadingSurvey, refetch: refetchSurvey } =
+    useGetBOQSurveyDataQuery(boqId, { skip: !boqId });
+
+  const [deleteSurvey, { isLoading: isDeleting }] =
+    useDeleteBOQSurveyDataMutation();
 
   const { data: boq, isLoading, isError, error, refetch } = useGetBoqQuery(boqId);
   const { data: itemsData, isLoading: loadingItems } = useGetBoqItemsQuery(boqId);
@@ -215,6 +226,33 @@ export default function BOQDetailPage() {
     }
   };
 
+  const handleSurveyUploadSuccess = () => {
+    refetchSurvey();
+  };
+
+  const handleDeleteSurvey = async () => {
+    if (!surveyData || !confirm('Delete survey data?')) return;
+
+    try {
+      await deleteSurvey({
+        boqId,
+        surveyId: surveyData.id,
+      }).unwrap();
+
+      setToast({
+        open: true,
+        message: 'Survey deleted',
+        severity: 'success',
+      });
+    } catch (e) {
+      setToast({
+        open: true,
+        message: 'Failed to delete survey',
+        severity: 'error',
+      });
+    }
+  };
+
   return (
     <Box>
       <Stack
@@ -234,7 +272,7 @@ export default function BOQDetailPage() {
             {boq.project_name} — BOQ spreadsheet
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {boq.site_name} · Template: {boq.template || '—'} · Version {boq.version}
+            {boq.site_name} · Template: {boq.template_name || '—'} · Version {boq.version}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
@@ -294,6 +332,28 @@ export default function BOQDetailPage() {
           </Box>
         </Stack>
       </Paper>
+
+      <Box sx={{ mt: 3, mb: 3 }}>
+        {surveyData ? (
+          <BOQSurveyViewer
+            surveyData={surveyData}
+            onFilterChange={setSurveyFilter}
+            onDelete={handleDeleteSurvey}
+            isDeleting={isDeleting}
+          />
+        ) : (
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              No survey data uploaded yet. Upload a district/site-wise distribution sheet to filter quantities by location
+            </Typography>
+            <BOQSurveyUploader
+              boqId={boqId}
+              onUploadSuccess={handleSurveyUploadSuccess}
+              isLoading={loadingSurvey}
+            />
+          </Paper>
+        )}
+      </Box>
 
       {editable && canCreate && (
         <Paper sx={{ p: 3, mb: 3 }}>

@@ -42,10 +42,14 @@ const defaultPermissions: ModulePermission[] = [
     return { key: '/boq', label: 'BOQ', allowedRoles: roles, crud: fullCrud(roles) };
   })(),
   (() => {
+  const roles = ['SYSTEM_ADMIN', 'HOD'];
+  return { key: '/admin/boq-templates', label: 'BOQ Templates', allowedRoles: roles, crud: fullCrud(roles) };
+  })(),
+  (() => {
     const roles = ['SITE_ENG', 'CONTRACTOR', 'HOD', 'DIR', 'SYSTEM_ADMIN', 'AUDITOR'];
     return {
       key: '/daily-progress',
-      label: 'Daily Progress',
+      label: 'Work Progress',
       allowedRoles: roles,
       crud: fullCrud(roles),
     };

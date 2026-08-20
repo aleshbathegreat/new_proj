@@ -16,6 +16,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PublicIcon from '@mui/icons-material/Public';
 import EngineeringIcon from '@mui/icons-material/Engineering';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 interface ModuleCard {
   title: string;
@@ -47,6 +48,12 @@ const moduleCards: ModuleCard[] = [
     title: 'Progress Tasks & KPIs',
     icon: <EngineeringIcon fontSize="large" />,
     href: '/admin/progress-tasks',
+    available: true,
+  },
+  {
+    title: 'BOQ Management',
+    icon: <DescriptionIcon fontSize="large" />,
+    href: '/boq',
     available: true,
   },
   {

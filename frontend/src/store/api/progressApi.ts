@@ -2,10 +2,14 @@ import { baseApi } from './baseApi';
 import type {
   DailyProgressEntry,
   DailyProgressWrite,
+  ItemCatalogEntry,
+  ModuleCatalogEntry,
   ProgressTaskTemplate,
   ProgressTaskTemplateWrite,
   SiteProgressTask,
   SiteProgressTaskWrite,
+  KPICategory,
+  KPICategoryWrite,
 } from '@/types/dailyProgress';
 
 interface CursorPagination {
@@ -38,6 +42,47 @@ export const progressApi = baseApi.injectEndpoints({
             ]
           : [{ type: 'ProgressTaskTemplate', id: 'LIST' }],
     }),
+    getKPICategories: builder.query<
+      ListResponse<KPICategory>,
+      { site_id?: string; page_size?: number } | void
+    >({
+      query: (params) => ({
+        url: '/api/v1/kpi-categories/',
+        params: params ?? {},
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.data.map(({ id }) => ({ type: 'KPICategory' as const, id })),
+              { type: 'KPICategory', id: 'LIST' },
+            ]
+          : [{ type: 'KPICategory', id: 'LIST' }],
+    }),
+    createKPICategory: builder.mutation<KPICategory, KPICategoryWrite>({
+      query: (body) => ({
+        url: '/api/v1/kpi-categories/',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: [{ type: 'KPICategory', id: 'LIST' }],
+    }),
+    deleteKPICategory: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/api/v1/kpi-categories/${id}/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: [{ type: 'KPICategory', id: 'LIST' }],
+    }),
+    updateKPICategory: builder.mutation<KPICategory, { id: string; data: Partial<KPICategoryWrite> }>(
+      {
+        query: ({ id, data }) => ({
+          url: `/api/v1/kpi-categories/${id}/`,
+          method: 'PATCH',
+          body: data,
+        }),
+        invalidatesTags: [{ type: 'KPICategory', id: 'LIST' }],
+      }
+    ),
     createProgressTaskTemplate: builder.mutation<ProgressTaskTemplate, ProgressTaskTemplateWrite>({
       query: (body) => ({
         url: '/api/v1/progress-task-templates/',
@@ -83,6 +128,18 @@ export const progressApi = baseApi.injectEndpoints({
               { type: 'SiteProgressTask', id: 'LIST' },
             ]
           : [{ type: 'SiteProgressTask', id: 'LIST' }],
+    }),
+    getModuleCatalog: builder.query<ListResponse<ModuleCatalogEntry>, { q?: string } | void>({
+      query: (params) => ({
+        url: '/api/v1/module-catalog/',
+        params: params ?? {},
+      }),
+    }),
+    getItemCatalog: builder.query<ListResponse<ItemCatalogEntry>, { q?: string } | void>({
+      query: (params) => ({
+        url: '/api/v1/item-catalog/',
+        params: params ?? {},
+      }),
     }),
     createSiteProgressTask: builder.mutation<SiteProgressTask, SiteProgressTaskWrite>({
       query: (body) => ({
@@ -187,6 +244,9 @@ export const {
   useCreateProgressTaskTemplateMutation,
   useUpdateProgressTaskTemplateMutation,
   useDeleteProgressTaskTemplateMutation,
+  useGetKPICategoriesQuery,
+  useCreateKPICategoryMutation,
+  useDeleteKPICategoryMutation,
   useGetSiteProgressTasksQuery,
   useCreateSiteProgressTaskMutation,
   useUpdateSiteProgressTaskMutation,
@@ -195,4 +255,7 @@ export const {
   useCreateDailyProgressMutation,
   useUpdateDailyProgressMutation,
   useDeleteDailyProgressMutation,
+  useGetModuleCatalogQuery,
+  useGetItemCatalogQuery,
+  useUpdateKPICategoryMutation,
 } = progressApi;

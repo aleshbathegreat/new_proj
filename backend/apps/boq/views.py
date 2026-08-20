@@ -3,16 +3,47 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
+from django.db import IntegrityError
 from apps.core.permissions import HasModulePermission
-from .models import BOQ, BOQItem
+from .models import BOQ, BOQItem, BOQTemplate, BOQSurveyData
 from .serializers import (
     BOQItemSerializer,
     BOQItemWriteSerializer,
     BOQSerializer,
     BOQWriteSerializer,
+    BOQTemplateSerializer,
+    BOQTemplateWriteSerializer,
+    BOQSurveyDataSerializer,
+    BOQSurveyDataWriteSerializer
 )
 
+from decimal import Decimal, ROUND_HALF_UP
+
+def _round_decimal_fields(row: dict) -> dict:
+    """
+    Real-world spreadsheets often carry floating-point precision drift
+    (e.g. 0.8500000000001 instead of 0.85). Round every incoming value to
+    match its model field's decimal_places, so messy source data doesn't
+    fail validation on precision alone.
+    """
+    decimal_fields = {
+        f.name: f.decimal_places
+        for f in BOQItem._meta.get_fields()
+        if hasattr(f, 'decimal_places') and f.decimal_places is not None
+    }
+    rounded = dict(row)
+    for field_name, places in decimal_fields.items():
+        value = rounded.get(field_name)
+        if value in (None, ''):
+            continue
+        try:
+            quantum = Decimal('1').scaleb(-places)
+            rounded[field_name] = Decimal(str(value)).quantize(
+                quantum, rounding=ROUND_HALF_UP
+            )
+        except (ValueError, TypeError, ArithmeticError):
+            pass  # leave as-is; the serializer's own validation will catch real errors
+    return rounded
 
 class BOQViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, HasModulePermission]
@@ -50,7 +81,7 @@ class BOQViewSet(viewsets.ModelViewSet):
                 {'detail': 'Cannot add items to a published BOQ.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        serializer = BOQItemWriteSerializer(data=request.data)
+        serializer = BOQItemWriteSerializer(data=_round_decimal_fields(request.data))
         serializer.is_valid(raise_exception=True)
         item = serializer.save(boq=boq)
         if boq.status == 'DRAFT':
@@ -76,14 +107,25 @@ class BOQViewSet(viewsets.ModelViewSet):
                 {'detail': 'Expected a JSON array of BOQ items.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        payload = [_round_decimal_fields(row) for row in payload]
+
         serializer = BOQItemWriteSerializer(data=payload, many=True)
         serializer.is_valid(raise_exception=True)
+
         boq.items.all().delete()
         items = []
         for row in serializer.validated_data:
             data = {k: v for k, v in row.items() if k != 'boq'}
             items.append(BOQItem(boq=boq, **data))
-        BOQItem.objects.bulk_create(items)
+
+        try:
+            BOQItem.objects.bulk_create(items)
+        except IntegrityError as exc:
+            return Response(
+                {'detail': f'Could not save items due to a database constraint: {exc}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if items and boq.status in ('DRAFT', 'UPLOADING', 'PARSING'):
             boq.status = 'READY'
             boq.save(update_fields=['status', 'updated_at'])
@@ -91,7 +133,7 @@ class BOQViewSet(viewsets.ModelViewSet):
             {'data': BOQItemSerializer(boq.items.all().order_by('no', 'item'), many=True).data},
             status=status.HTTP_200_OK,
         )
-
+    
     @action(detail=True, methods=['post'])
     def publish(self, request, pk=None):
         if request.user.role not in ('HOD', 'DIR', 'SYSTEM_ADMIN'):
@@ -140,9 +182,14 @@ class BOQItemViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
-        qs = BOQItem.objects.select_related('boq', 'boq__project', 'boq__site').order_by(
-            'boq_id', 'no', 'item'
-        )
+        qs = BOQItem.objects.select_related(
+            'boq',
+            'boq__project',
+            'boq__site',
+            'boq__site__town',
+            'boq__site__town__district',
+            'boq__site__town__district__province',
+        ).order_by('boq_id', 'no', 'item')
         boq_id = self.request.query_params.get('boq_id')
         if boq_id:
             qs = qs.filter(boq_id=boq_id)
@@ -191,3 +238,55 @@ class BOQItemViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return super().destroy(request, *args, **kwargs)
+
+
+class BOQTemplateViewSet(viewsets.ModelViewSet):
+    queryset = BOQTemplate.objects.all()
+    permission_classes = [IsAuthenticated, HasModulePermission]
+    module_key = 'boq-templates'
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return BOQTemplateWriteSerializer
+        return BOQTemplateSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        active = self.request.query_params.get('is_active')
+        if active in ('true', '1'):
+            qs = qs.filter(is_active=True)
+        elif active in ('false', '0'):
+            qs = qs.filter(is_active=False)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+class BOQSurveyDataViewSet(viewsets.ModelViewSet):
+    """
+    Upload, retrieve, and delete survey data for a BOQ.
+    
+    GET    /api/v1/boq/{boq_id}/survey-data/      → Get existing survey
+    POST   /api/v1/boq/{boq_id}/survey-data/      → Upload new survey
+    DELETE /api/v1/boq/{boq_id}/survey-data/{id}/ → Delete survey
+    """
+    permission_classes = [IsAuthenticated, HasModulePermission]
+    module_key = 'boq'
+
+    def get_queryset(self):
+        boq_id = self.kwargs.get('boq_id')
+        return BOQSurveyData.objects.filter(boq_id=boq_id)
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return BOQSurveyDataWriteSerializer
+        return BOQSurveyDataSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        boq_id = self.kwargs.get('boq_id')
+        try:
+            context['boq'] = BOQ.objects.get(id=boq_id)
+        except BOQ.DoesNotExist:
+            pass
+        return context

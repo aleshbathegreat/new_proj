@@ -1,4 +1,3 @@
-/** Mirrors backend `BOQ.STATUS_CHOICES`. */
 export type BOQStatus = 'DRAFT' | 'UPLOADING' | 'PARSING' | 'READY' | 'PUBLISHED';
 
 /**
@@ -59,6 +58,14 @@ export interface BOQItemWrite {
 export interface BOQItem extends BOQItemWrite {
   id: string;
   boq_id: string;
+  site_id: string;
+  site_name: string;
+  project_id: string;
+  project_name: string;
+  district_id: string;
+  district_name: string;
+  province_id: string;
+  province_name: string;
   fob_total: number | string;
   price_with_landing: number | string;
   price_with_insurance: number | string;
@@ -81,7 +88,8 @@ export interface BOQ {
   site_name: string;
   version: number;
   status: BOQStatus;
-  template: string | null;
+  template_id: string | null;
+  template_name: string | null;
   total_amount: number | string;
   items_count: number;
   created_at: string;
@@ -93,5 +101,5 @@ export interface BOQWrite {
   project_id: string;
   site_id: string;
   version?: number;
-  template?: string;
+  template_id?: string | null;
 }

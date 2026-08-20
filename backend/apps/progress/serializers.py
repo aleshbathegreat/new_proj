@@ -3,7 +3,7 @@ from rest_framework.fields import empty
 
 from apps.boq.models import BOQ, BOQItem
 from apps.sites.models import Site
-from .models import DailyProgressEntry, ProgressTaskTemplate, SiteProgressTask
+from .models import DailyProgressEntry, KPICategory, ProgressTaskTemplate, SiteProgressTask, ModuleCatalogEntry, ItemCatalogEntry
 
 
 class ProgressTaskTemplateSerializer(serializers.ModelSerializer):
@@ -23,6 +23,32 @@ class ProgressTaskTemplateSerializer(serializers.ModelSerializer):
         ]
 
 
+class KPICategorySerializer(serializers.ModelSerializer):
+    site_id = serializers.PrimaryKeyRelatedField(source='site', queryset=Site.objects.all())
+    site_name = serializers.CharField(source='site.name', read_only=True)
+    subtask_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = KPICategory
+        fields = [
+            'id',
+            'site_id',
+            'site_name',
+            'name',
+            'description',
+            'sort_order',
+            'subtask_count',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_subtask_count(self, obj):
+        return obj.subtasks.count()
+
+    def validate_name(self, value):
+        return value.strip()
+
+
 class SiteProgressTaskSerializer(serializers.ModelSerializer):
     site_id = serializers.PrimaryKeyRelatedField(source='site', queryset=Site.objects.all())
     site_name = serializers.CharField(source='site.name', read_only=True)
@@ -33,6 +59,15 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
         queryset=ProgressTaskTemplate.objects.all(),
         required=False,
         allow_null=True,
+    )
+    kpi_category_id = serializers.PrimaryKeyRelatedField(
+        source='kpi_category',
+        queryset=KPICategory.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    kpi_category_name = serializers.CharField(
+        source='kpi_category.name', read_only=True, default=None
     )
     boq_id = serializers.PrimaryKeyRelatedField(
         source='boq',
@@ -68,6 +103,8 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
             'project_id',
             'project_name',
             'template_id',
+            'kpi_category_id',
+            'kpi_category_name',
             'boq_id',
             'boq_item_id',
             'boq_item_code',
@@ -98,6 +135,9 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
         boq_item = attrs.get('boq_item', empty)
         if boq_item is empty:
             boq_item = getattr(self.instance, 'boq_item', None)
+        kpi_category = attrs.get('kpi_category', empty)
+        if kpi_category is empty:
+            kpi_category = getattr(self.instance, 'kpi_category', None)
 
         if boq and site and boq.site_id != site.id:
             raise serializers.ValidationError(
@@ -110,6 +150,10 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
         if boq_item and site and boq_item.boq.site_id != site.id:
             raise serializers.ValidationError(
                 {'boq_item_id': 'BOQ item does not belong to the selected site.'}
+            )
+        if kpi_category and site and kpi_category.site_id != site.id:
+            raise serializers.ValidationError(
+                {'kpi_category_id': 'KPI category does not belong to the selected site.'}
             )
         # Auto-fill boq from item
         if boq_item and not boq:
@@ -236,4 +280,15 @@ class DailyProgressEntrySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'site_task_id': 'Cannot log progress against an inactive task.'}
             )
-        return attrs
+        return attrs 
+
+class ModuleCatalogEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModuleCatalogEntry
+        fields = ['id', 'name', 'description']
+
+
+class ItemCatalogEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ItemCatalogEntry
+        fields = ['id', 'name', 'default_unit']

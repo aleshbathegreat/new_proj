@@ -64,7 +64,7 @@ const navItems = [
   { label: 'Projects', icon: <FolderIcon />, href: '/projects' },
   { label: 'Sites', icon: <LocationOnIcon />, href: '/sites' },
   { label: 'BOQ', icon: <DescriptionIcon />, href: '/boq' },
-  { label: 'Daily Progress', icon: <AssignmentIcon />, href: '/daily-progress' },
+  { label: 'Work Progress', icon: <AssignmentIcon />, href: '/daily-progress' },
   { label: 'Workflows', icon: <RuleIcon />, href: '/workflows' },
   { label: 'Deviations', icon: <WarningIcon />, href: '/deviations' },
   { label: 'Tasks', icon: <TaskIcon />, href: '/tasks' },

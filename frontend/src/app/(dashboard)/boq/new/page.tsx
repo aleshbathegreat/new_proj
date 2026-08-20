@@ -18,11 +18,13 @@ import { useCreateBoqMutation } from '@/store/api/boqApi';
 import { useGetProjectsQuery } from '@/store/api/projectApi';
 import { useGetSitesQuery } from '@/store/api/siteApi';
 import { useCrudPermission } from '@/hooks/useCrudPermission';
+import { useGetBoqTemplatesQuery } from '@/store/api/boqTemplateApi';
+
 
 const schema = z.object({
   project_id: z.string().uuid('Select a project'),
   site_id: z.string().uuid('Select a site'),
-  template: z.string().optional(),
+  template_id: z.string().uuid().optional().or(z.literal('')),
   version: z.coerce.number().int().min(1),
 });
 
@@ -43,7 +45,7 @@ export default function CreateBOQPage() {
     formState: { errors },
   } = useForm<z.input<typeof schema>, unknown, FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { project_id: '', site_id: '', template: '', version: 1 },
+    defaultValues: { project_id: '', site_id: '', template_id: '', version: 1 },
   });
 
   const projectId = watch('project_id');
@@ -51,6 +53,11 @@ export default function CreateBOQPage() {
     { project_id: projectId, page_size: 100 },
     { skip: !projectId }
   );
+
+  const { data: templatesData, isLoading: loadingTemplates } = useGetBoqTemplatesQuery({
+  is_active: 'true',
+  });
+  const templates = templatesData?.data ?? [];
 
   const projects = projectsData?.data ?? [];
   const sites = useMemo(() => sitesData?.data ?? [], [sitesData]);
@@ -71,7 +78,7 @@ export default function CreateBOQPage() {
     const boq = await createBoq({
       project_id: values.project_id,
       site_id: values.site_id,
-      template: values.template || undefined,
+      template_id: values.template_id || undefined,
       version: values.version,
     }).unwrap();
     router.push(`/boq/${boq.id}`);
@@ -146,10 +153,30 @@ export default function CreateBOQPage() {
             />
 
             <Controller
-              name="template"
+              name="template_id"
               control={control}
               render={({ field }) => (
-                <TextField {...field} fullWidth label="Template code (optional)" />
+                <TextField
+                  {...field}
+                  select
+                  fullWidth
+                  label="BOQ Template (optional)"
+                  disabled={loadingTemplates}
+                  helperText={
+                    templates.length === 0 && !loadingTemplates
+                      ? 'No templates saved yet'
+                      : 'Pick a saved template to reuse its fields'
+                  }
+                >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  {templates.map((t) => (
+                    <MenuItem key={t.id} value={t.id}>
+                      {t.name} ({t.field_count} field{t.field_count === 1 ? '' : 's'})
+                    </MenuItem>
+                  ))}
+                </TextField>
               )}
             />
 

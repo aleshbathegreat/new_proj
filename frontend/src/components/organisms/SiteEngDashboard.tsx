@@ -56,7 +56,7 @@ export default function SiteEngDashboard() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3, cursor: 'pointer' }} onClick={() => router.push('/daily-progress')}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Recent Daily Progress
+              Recent Work Progress
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Daily progress entries are stored locally until the API is available.

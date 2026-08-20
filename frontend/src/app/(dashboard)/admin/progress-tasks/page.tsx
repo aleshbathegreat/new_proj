@@ -623,7 +623,7 @@ export default function ProgressTasksAdminPage() {
               <MenuItem value="">None</MenuItem>
               {boqs.map((b) => (
                 <MenuItem key={b.id} value={b.id}>
-                  {b.template || 'BOQ'} v{b.version} ({b.status})
+                  {b.template_name || 'BOQ'} v{b.version} ({b.status})
                 </MenuItem>
               ))}
             </TextField>

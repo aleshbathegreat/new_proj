@@ -11,7 +11,7 @@ export function formatBoqNumber(value: unknown, digits = 2) {
   });
 }
 
-/** Exact spreadsheet column order provided for SC-GIMS BOQ import. */
+//Exact spreadsheet column order provided for SC-GIMS BOQ import
 export const BOQ_SPREADSHEET_COLUMNS: GridColDef[] = [
   { field: 'pc1', headerName: 'PC1', width: 90 },
   { field: 'no', headerName: 'NO.', width: 70 },

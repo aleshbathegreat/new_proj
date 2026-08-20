@@ -20,6 +20,8 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
   const bootstrapped = useSelector((s: RootState) => s.auth.bootstrapped);
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
   useEffect(() => {
     let cancelled = false;
 
@@ -40,7 +42,7 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
         dispatch(setUser(user));
 
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/v1/permissions/`,
+          `${API_URL}/api/v1/permissions/`,
           { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
         );
         if (res.ok) {
@@ -67,7 +69,7 @@ export default function AuthBootstrap({ children }: { children: React.ReactNode 
     if (!isAuthenticated || !bootstrapped) return;
     const token = tokenService.getAccessToken();
     if (!token) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/v1/permissions/`, {
+    fetch(`${API_URL}/api/v1/permissions/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => (r.ok ? r.json() : null))

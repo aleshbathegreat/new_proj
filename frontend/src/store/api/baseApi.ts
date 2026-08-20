@@ -10,7 +10,7 @@ import { authService } from '@/services/authService';
 import { logout, setAccessToken } from '../slices/authSlice';
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: process.env.NEXT_PUBLIC_API_URL ?? '',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000',
   prepareHeaders: (headers, { getState }) => {
     const stateToken = (getState() as { auth: { accessToken: string | null } }).auth.accessToken;
     const token = stateToken || tokenService.getAccessToken();
@@ -55,6 +55,7 @@ export const baseApi = createApi({
     'Site',
     'Boq',
     'BoqItem',
+    'BoqTemplate',
     'Permission',
     'Province',
     'District',
@@ -67,6 +68,8 @@ export const baseApi = createApi({
     'SiteProgressTask',
     'Deviation',
     'Workflow',
+    'KPICategory',
+    'BoqSurveyData',
   ],
   endpoints: () => ({}),
 });

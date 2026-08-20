@@ -33,6 +33,8 @@ export interface SiteProgressTask {
   project_id: string;
   project_name: string;
   template_id: string | null;
+  kpi_category_id: string | null;
+  kpi_category_name: string | null;
   boq_id: string | null;
   boq_item_id: string | null;
   boq_item_code: string | null;
@@ -55,6 +57,7 @@ export interface SiteProgressTask {
 export type SiteProgressTaskWrite = {
   site_id: string;
   template_id?: string | null;
+  kpi_category_id?: string | null;
   boq_id?: string | null;
   boq_item_id?: string | null;
   key: string;
@@ -102,3 +105,36 @@ export type DailyProgressWrite = {
   kpi_values?: Record<string, unknown>;
   remarks?: string;
 };
+
+export interface KPICategory {
+  id: string;
+  site_id: string;
+  site_name: string;
+  name: string;
+  description: string;
+  sort_order: number;
+  subtask_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type KPICategoryWrite = {
+  site_id: string;
+  name: string;
+  description?: string;
+  sort_order?: number;
+};
+
+export interface ModuleCatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface ItemCatalogEntry {
+  id: string;
+  name: string;
+  default_unit: string;
+}
+
+

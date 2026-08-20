@@ -43,7 +43,7 @@ export default function NewProjectPage() {
           isSubmitting={isLoading}
           onCancel={() => router.push('/projects')}
           onSubmit={async (data) => {
-            const project = await createProject({ ...data, status: 'PLANNED' }).unwrap();
+            const project = await createProject({ ...data, status: 'PLANNING' }).unwrap();
             router.push(`/projects/${project.id}`);
           }}
         />

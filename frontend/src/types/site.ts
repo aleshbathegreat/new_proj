@@ -36,10 +36,10 @@ export type City = Town;
 export interface Site {
   id: string;
   project_id: string;
-  town_id: string;
-  town_name?: string;
   district_id?: string;
   district_name?: string;
+  town_id?: string;
+  town_name?: string;
   province_id?: string;
   province_name?: string;
   name: string;
@@ -54,7 +54,8 @@ export interface Site {
 
 export interface CreateSiteDto {
   project_id: string;
-  town_id: string;
+  district_id?: string;
+  town_id?: string;
   name: string;
   location?: string;
   latitude?: number;

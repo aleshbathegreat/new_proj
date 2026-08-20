@@ -2,7 +2,7 @@ from django.db import models
 
 from apps.core.models import BaseModel
 from apps.projects.models import Project
-from apps.provinces.models import Town
+from apps.provinces.models import District, Town
 
 
 class Site(BaseModel):
@@ -15,7 +15,14 @@ class Site(BaseModel):
     ]
 
     project = models.ForeignKey(Project, related_name='sites', on_delete=models.PROTECT)
-    town = models.ForeignKey(Town, related_name='sites', on_delete=models.PROTECT)
+    district = models.ForeignKey(
+        District, related_name='sites', on_delete=models.PROTECT,
+        null=True, blank=True,
+    )
+    town = models.ForeignKey(
+        Town, related_name='sites', on_delete=models.PROTECT,
+        null=True, blank=True,
+    )
     name = models.CharField(max_length=255)
     location = models.CharField(max_length=255, blank=True, null=True)
     latitude = models.FloatField(blank=True, null=True)

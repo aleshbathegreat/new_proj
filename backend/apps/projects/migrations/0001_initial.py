@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                 ('start_date', models.DateField()),
                 ('end_date', models.DateField(blank=True, null=True)),
                 ('budget', models.DecimalField(blank=True, decimal_places=2, max_digits=14, null=True)),
-                ('status', models.CharField(choices=[('PLANNED', 'Planned'), ('ACTIVE', 'Active'), ('ON_HOLD', 'On Hold'), ('COMPLETED', 'Completed'), ('CLOSED', 'Closed')], default='PLANNED', max_length=20)),
+                ('status', models.CharField(choices=[('PLANNING', 'Planning'), ('ACTIVE', 'Active'), ('ON_HOLD', 'On Hold'), ('COMPLETED', 'Completed'), ('CLOSED', 'Closed')], default='PLANNING', max_length=20)),
                 ('province', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='projects', to='provinces.province')),
             ],
             options={

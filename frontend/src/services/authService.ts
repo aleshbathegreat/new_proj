@@ -1,7 +1,7 @@
 import type { AuthUser } from '@/store/slices/authSlice';
 import { tokenService } from './tokenService';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 interface ApiUser {
   id: string;
@@ -30,7 +30,7 @@ function mapUser(user: ApiUser): AuthUser {
     provinceIds: user.province_ids?.map(String) ?? [],
     siteIds: user.site_ids?.map(String) ?? [],
     contractorId: user.contractor_id,
-  };
+  }; 
 }
 
 async function parseError(res: Response): Promise<string> {

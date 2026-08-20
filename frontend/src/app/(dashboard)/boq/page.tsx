@@ -28,6 +28,7 @@ import type { BOQ } from '@/types/boq';
 export default function BOQListPage() {
   const router = useRouter();
   const { canCreate } = useCrudPermission('/boq');
+  const { canCreate: canManageTemplates } = useCrudPermission('/boq-templates');
   const [statusFilter, setStatusFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
 
@@ -109,6 +110,15 @@ export default function BOQListPage() {
           >
             Refresh
           </Button>
+          {canManageTemplates && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => router.push('/admin/boq-templates')}
+            >
+              Manage Templates
+            </Button>
+          )}
           {canCreate && (
             <Button
               variant="contained"
@@ -209,7 +219,7 @@ export default function BOQListPage() {
                   field: 'template',
                   headerName: 'Template',
                   flex: 1,
-                  renderCell: ({ row }: { row: BOQ }) => row.template || '—',
+                  renderCell: ({ row }: { row: BOQ }) => row.template_name || '—',
                 },
                 {
                   field: 'version',
