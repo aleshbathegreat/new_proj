@@ -5,16 +5,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db import IntegrityError
 from apps.core.permissions import HasModulePermission
-from .models import BOQ, BOQItem, BOQTemplate, BOQSurveyData
+from .models import BOQ, BOQItem, BOQTemplate
 from .serializers import (
     BOQItemSerializer,
     BOQItemWriteSerializer,
     BOQSerializer,
     BOQWriteSerializer,
     BOQTemplateSerializer,
-    BOQTemplateWriteSerializer,
-    BOQSurveyDataSerializer,
-    BOQSurveyDataWriteSerializer
+    BOQTemplateWriteSerializer
 )
 
 from decimal import Decimal, ROUND_HALF_UP
@@ -262,31 +260,3 @@ class BOQTemplateViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-class BOQSurveyDataViewSet(viewsets.ModelViewSet):
-    """
-    Upload, retrieve, and delete survey data for a BOQ.
-    
-    GET    /api/v1/boq/{boq_id}/survey-data/      → Get existing survey
-    POST   /api/v1/boq/{boq_id}/survey-data/      → Upload new survey
-    DELETE /api/v1/boq/{boq_id}/survey-data/{id}/ → Delete survey
-    """
-    permission_classes = [IsAuthenticated, HasModulePermission]
-    module_key = 'boq'
-
-    def get_queryset(self):
-        boq_id = self.kwargs.get('boq_id')
-        return BOQSurveyData.objects.filter(boq_id=boq_id)
-
-    def get_serializer_class(self):
-        if self.action in ('create', 'update', 'partial_update'):
-            return BOQSurveyDataWriteSerializer
-        return BOQSurveyDataSerializer
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        boq_id = self.kwargs.get('boq_id')
-        try:
-            context['boq'] = BOQ.objects.get(id=boq_id)
-        except BOQ.DoesNotExist:
-            pass
-        return context

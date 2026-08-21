@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.projects.models import Project
 from apps.sites.models import Site
-from .models import BOQ, BOQItem, BOQTemplate, BOQSurveyData
+from .models import BOQ, BOQItem, BOQTemplate
 
 
 class BOQItemSerializer(serializers.ModelSerializer):
@@ -273,50 +273,3 @@ class BOQTemplateWriteSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         # After create/update, return the full read serializer with all fields including id
         return BOQTemplateSerializer(instance, context=self.context).data
-
-class BOQSurveyDataSerializer(serializers.ModelSerializer):
-    """Read: Full survey data with all allocations"""
-    item_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = BOQSurveyData
-        fields = ['id', 'level', 'file_name', 'data', 'item_count', 'created_at', 'created_by']
-        read_only_fields = fields
-
-    def get_item_count(self, obj):
-        return len(obj.data.get('items', []))
-
-
-class BOQSurveyDataWriteSerializer(serializers.ModelSerializer):
-    """Write: Accept Excel file and parse it"""
-    file = serializers.FileField(write_only=True, required=True)
-
-    class Meta:
-        model = BOQSurveyData
-        fields = ['file']
-
-    def create(self, validated_data):
-        from apps.boq.utils.survey_parser import SurveyParser, SurveyParseError
-        
-        boq = self.context['boq']
-        file_obj = validated_data['file']
-        
-        try:
-            parser = SurveyParser(boq=boq)
-            parsed_data = parser.parse(file_obj.read())
-        except SurveyParseError as e:
-            raise serializers.ValidationError({'file': str(e)})
-        
-        # Delete old survey if exists (one survey per BOQ)
-        BOQSurveyData.objects.filter(boq=boq).delete()
-        
-        # Create new one
-        survey = BOQSurveyData.objects.create(
-            boq=boq,
-            level=parsed_data['level'],
-            data=parsed_data,
-            file_name=file_obj.name,
-            created_by=self.context['request'].user
-        )
-        
-        return survey

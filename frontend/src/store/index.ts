@@ -8,7 +8,6 @@ import './api/boqTemplateApi';
 import './api/provinceApi';
 import './api/userApi';
 import './api/permissionsApi';
-import './api/boqSurveyApi';  
 import authReducer from './slices/authSlice';
 import permissionsReducer from './slices/permissionsSlice';
 import disciplinesReducer from './slices/disciplinesSlice';

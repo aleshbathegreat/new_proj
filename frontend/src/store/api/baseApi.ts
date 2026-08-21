@@ -69,7 +69,6 @@ export const baseApi = createApi({
     'Deviation',
     'Workflow',
     'KPICategory',
-    'BoqSurveyData',
   ],
   endpoints: () => ({}),
 });
