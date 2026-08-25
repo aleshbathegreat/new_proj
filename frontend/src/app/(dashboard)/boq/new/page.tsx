@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -14,17 +14,16 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useCreateBoqMutation } from '@/store/api/boqApi';
+import { DataGrid } from '@mui/x-data-grid';
+import { useCreateBoqMutation, useBulkReplaceBoqItemsMutation } from '@/store/api/boqApi';
 import { useGetProjectsQuery } from '@/store/api/projectApi';
-import { useGetSitesQuery } from '@/store/api/siteApi';
 import { useCrudPermission } from '@/hooks/useCrudPermission';
-import { useGetBoqTemplatesQuery } from '@/store/api/boqTemplateApi';
-
+import BOQUploader from '@/components/molecules/BOQUploader';
+import { BOQ_SPREADSHEET_COLUMNS } from '@/lib/boq/spreadsheet';
+import type { BOQ, BOQItemWrite } from '@/types/boq';
 
 const schema = z.object({
   project_id: z.string().uuid('Select a project'),
-  site_id: z.string().uuid('Select a site'),
-  template_id: z.string().uuid().optional().or(z.literal('')),
   version: z.coerce.number().int().min(1),
 });
 
@@ -33,34 +32,26 @@ type FormValues = z.output<typeof schema>;
 export default function CreateBOQPage() {
   const router = useRouter();
   const { canCreate } = useCrudPermission('/boq');
-  const [createBoq, { isLoading, error }] = useCreateBoqMutation();
+  const [createBoq, { isLoading: creating, error: createError }] = useCreateBoqMutation();
+  const [bulkReplace, { isLoading: importing }] = useBulkReplaceBoqItemsMutation();
   const { data: projectsData, isLoading: loadingProjects } = useGetProjectsQuery({
     page_size: 100,
   });
 
+  const [boq, setBoq] = useState<BOQ | null>(null);
+  const [uploadedItems, setUploadedItems] = useState<BOQItemWrite[] | null>(null);
+  const [uploadError, setUploadError] = useState('');
+
   const {
     control,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<z.input<typeof schema>, unknown, FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { project_id: '', site_id: '', template_id: '', version: 1 },
+    defaultValues: { project_id: '', version: 1 },
   });
-
-  const projectId = watch('project_id');
-  const { data: sitesData, isLoading: loadingSites } = useGetSitesQuery(
-    { project_id: projectId, page_size: 100 },
-    { skip: !projectId }
-  );
-
-  const { data: templatesData, isLoading: loadingTemplates } = useGetBoqTemplatesQuery({
-  is_active: 'true',
-  });
-  const templates = templatesData?.data ?? [];
 
   const projects = projectsData?.data ?? [];
-  const sites = useMemo(() => sitesData?.data ?? [], [sitesData]);
 
   useEffect(() => {
     document.title = 'Create BOQ | SC-GIMS';
@@ -74,136 +65,144 @@ export default function CreateBOQPage() {
     );
   }
 
-  const onSubmit = async (values: FormValues) => {
-    const boq = await createBoq({
+  // Step 1: create the draft BOQ (project + version only)
+  const onCreate = async (values: FormValues) => {
+    const created = await createBoq({
       project_id: values.project_id,
-      site_id: values.site_id,
-      template_id: values.template_id || undefined,
       version: values.version,
     }).unwrap();
-    router.push(`/boq/${boq.id}`);
+    setBoq(created);
   };
 
-  const apiError =
-    (error as { data?: { detail?: string; site_id?: string[] } })?.data?.detail ||
-    (error as { data?: { site_id?: string[] } })?.data?.site_id?.[0];
+  // Step 2: parse + upload the spreadsheet onto the newly created BOQ
+  const handleImport = async (parsed: BOQItemWrite[]) => {
+    if (!boq) return;
+    setUploadError('');
+    try {
+      const result = await bulkReplace({ boqId: boq.id, items: parsed }).unwrap();
+      setUploadedItems(parsed);
+      setBoq((prev) => (prev ? { ...prev, items_count: result.data.length } : prev));
+    } catch (e) {
+      setUploadError(
+        (e as { data?: { detail?: string } })?.data?.detail || 'Failed to upload BOQ.'
+      );
+    }
+  };
+
+  const apiError = (createError as { data?: { detail?: string } })?.data?.detail;
 
   return (
-    <Box sx={{ maxWidth: 720 }}>
+    <Box sx={{ maxWidth: 900 }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/boq')} sx={{ mb: 2 }}>
         Back to BOQ
       </Button>
       <Typography variant="h5" sx={{ mb: 1 }}>
         Create BOQ
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Select project and site. You can add spreadsheet line items on the next screen.
-      </Typography>
 
-      <Paper sx={{ p: 3 }}>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-          <Stack spacing={2.5}>
-            {apiError && <Alert severity="error">{String(apiError)}</Alert>}
+      {!boq && (
+        <>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Select a project and version. You&apos;ll upload the BOQ spreadsheet on the next step.
+          </Typography>
 
-            <Controller
-              name="project_id"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  fullWidth
-                  label="Project"
-                  disabled={loadingProjects}
-                  error={!!errors.project_id}
-                  helperText={errors.project_id?.message}
-                >
-                  {projects.map((p) => (
-                    <MenuItem key={p.id} value={p.id}>
-                      {p.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
+          <Paper sx={{ p: 3 }}>
+            <Box component="form" onSubmit={handleSubmit(onCreate)}>
+              <Stack spacing={2.5}>
+                {apiError && <Alert severity="error">{String(apiError)}</Alert>}
 
-            <Controller
-              name="site_id"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  fullWidth
-                  label="Site"
-                  disabled={!projectId || loadingSites}
-                  error={!!errors.site_id}
-                  helperText={
-                    errors.site_id?.message ||
-                    (!projectId ? 'Select a project first' : undefined)
-                  }
-                >
-                  {sites.map((s) => (
-                    <MenuItem key={s.id} value={s.id}>
-                      {s.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-
-            <Controller
-              name="template_id"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  fullWidth
-                  label="BOQ Template (optional)"
-                  disabled={loadingTemplates}
-                  helperText={
-                    templates.length === 0 && !loadingTemplates
-                      ? 'No templates saved yet'
-                      : 'Pick a saved template to reuse its fields'
-                  }
-                >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  {templates.map((t) => (
-                    <MenuItem key={t.id} value={t.id}>
-                      {t.name} ({t.field_count} field{t.field_count === 1 ? '' : 's'})
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-
-            <Controller
-              name="version"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  type="number"
-                  fullWidth
-                  label="Version"
-                  error={!!errors.version}
-                  helperText={errors.version?.message}
+                <Controller
+                  name="project_id"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      label="Project"
+                      disabled={loadingProjects}
+                      error={!!errors.project_id}
+                      helperText={errors.project_id?.message}
+                    >
+                      {projects.map((p) => (
+                        <MenuItem key={p.id} value={p.id}>
+                          {p.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
                 />
-              )}
-            />
 
-            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-              <Button onClick={() => router.push('/boq')}>Cancel</Button>
-              <Button type="submit" variant="contained" disabled={isLoading}>
-                {isLoading ? 'Creating…' : 'Create BOQ'}
-              </Button>
-            </Stack>
+                <Controller
+                  name="version"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="number"
+                      fullWidth
+                      label="Version"
+                      error={!!errors.version}
+                      helperText={errors.version?.message}
+                    />
+                  )}
+                />
+
+                <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                  <Button onClick={() => router.push('/boq')}>Cancel</Button>
+                  <Button type="submit" variant="contained" disabled={creating}>
+                    {creating ? 'Creating…' : 'Continue'}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Box>
+          </Paper>
+        </>
+      )}
+
+      {boq && !uploadedItems && (
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Upload BOQ spreadsheet
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {boq.project_name} · Version {boq.version}
+          </Typography>
+          {uploadError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {uploadError}
+            </Alert>
+          )}
+          <BOQUploader disabled={importing} onParsed={handleImport} />
+        </Paper>
+      )}
+
+      {boq && uploadedItems && (
+        <Box>
+          <Alert severity="success" sx={{ mb: 3 }}>
+            BOQ uploaded successfully — {uploadedItems.length} line item
+            {uploadedItems.length === 1 ? '' : 's'} imported.
+          </Alert>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <DataGrid
+              rows={uploadedItems.map((item, i) => ({ id: i, ...item }))}
+              columns={BOQ_SPREADSHEET_COLUMNS}
+              autoHeight
+              pageSizeOptions={[10, 25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+              disableRowSelectionOnClick
+            />
+          </Paper>
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+            <Button variant="outlined" onClick={() => router.push('/boq')}>
+              Back to BOQ list
+            </Button>
+            <Button variant="contained" onClick={() => router.push(`/boq/${boq.id}`)}>
+              Open BOQ
+            </Button>
           </Stack>
         </Box>
-      </Paper>
+      )}
     </Box>
   );
 }

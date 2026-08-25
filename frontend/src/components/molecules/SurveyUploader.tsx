@@ -7,17 +7,17 @@ import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { parseBoqSpreadsheet } from '@/lib/boq/spreadsheet';
-import type { BOQItemWrite } from '@/types/boq';
+import { parseSurveySpreadsheet } from '@/lib/survey/spreadsheet';
+import type { SurveyRowData } from '@/types/survey';
 
 type UploadStatus = 'idle' | 'parsing' | 'done' | 'error';
 
-interface BOQUploaderProps {
+interface SurveyUploaderProps {
   disabled?: boolean;
-  onParsed: (items: BOQItemWrite[]) => Promise<void> | void;
+  onParsed: (rows: SurveyRowData[]) => Promise<void> | void;
 }
 
-export default function BOQUploader({ disabled, onParsed }: BOQUploaderProps) {
+export default function SurveyUploader({ disabled, onParsed }: SurveyUploaderProps) {
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [fileName, setFileName] = useState('');
   const [message, setMessage] = useState('');
@@ -33,53 +33,39 @@ export default function BOQUploader({ disabled, onParsed }: BOQUploaderProps) {
 
     try {
       const buffer = await file.arrayBuffer();
-      const items = parseBoqSpreadsheet(buffer);
-      if (items.length === 0) {
+      const rows = parseSurveySpreadsheet(buffer);
+      if (rows.length === 0) {
         setStatus('error');
-        setMessage('No BOQ rows found. Use the spreadsheet headers (PC1, NO., ITEM, … TotalDDP PKR).');
+        setMessage('No survey rows found. Check that the sheet has a header row and data below it.');
         return;
       }
-      await onParsed(items);
+      await onParsed(rows);
       setStatus('done');
-      setMessage(`Imported ${items.length} line item${items.length === 1 ? '' : 's'} from ${file.name}.`);
+      setMessage(`Imported ${rows.length} survey row${rows.length === 1 ? '' : 's'} from ${file.name}.`);
     } catch (err) {
       setStatus('error');
       setMessage(
         (err as { data?: { detail?: string } })?.data?.detail ||
           (err as Error)?.message ||
-          'Failed to parse or upload BOQ spreadsheet.'
+          'Failed to parse or upload survey spreadsheet.'
       );
     }
   };
 
   return (
-    <Box
-      sx={{
-        border: '2px dashed',
-        borderColor: 'divider',
-        borderRadius: 2,
-        p: 3,
-        textAlign: 'center',
-      }}
-    >
+    <Box sx={{ border: '2px dashed', borderColor: 'divider', borderRadius: 2, p: 3, textAlign: 'center' }}>
       {status === 'idle' && (
         <>
           <UploadFileIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
           <Typography variant="body1" sx={{ mb: 1 }}>
-            Import new BOQ spreadsheet (.xlsx)
+            Import survey spreadsheet (.xlsx)
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-            Columns: PC1 → FOB → duties/taxes → DDPUnit / TotalDDP (USD & PKR)
+            Every column in the sheet is imported as-is — no fixed template required.
           </Typography>
           <Button variant="outlined" component="label" disabled={disabled}>
             Choose Excel file
-            <input
-              type="file"
-              hidden
-              accept=".xlsx,.xls"
-              disabled={disabled}
-              onChange={handleFileChange}
-            />
+            <input type="file" hidden accept=".xlsx,.xls" disabled={disabled} onChange={handleFileChange} />
           </Button>
         </>
       )}
@@ -91,35 +77,19 @@ export default function BOQUploader({ disabled, onParsed }: BOQUploaderProps) {
       )}
       {status === 'done' && (
         <Box>
-          <Alert severity="success" sx={{ mb: 2, textAlign: 'left' }}>
-            {message}
-          </Alert>
+          <Alert severity="success" sx={{ mb: 2, textAlign: 'left' }}>{message}</Alert>
           <Button variant="outlined" component="label" disabled={disabled}>
             Replace with another file
-            <input
-              type="file"
-              hidden
-              accept=".xlsx,.xls"
-              disabled={disabled}
-              onChange={handleFileChange}
-            />
+            <input type="file" hidden accept=".xlsx,.xls" disabled={disabled} onChange={handleFileChange} />
           </Button>
         </Box>
       )}
       {status === 'error' && (
         <Box>
-          <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>
-            {message}
-          </Alert>
+          <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>{message}</Alert>
           <Button variant="outlined" component="label" disabled={disabled}>
             Try again
-            <input
-              type="file"
-              hidden
-              accept=".xlsx,.xls"
-              disabled={disabled}
-              onChange={handleFileChange}
-            />
+            <input type="file" hidden accept=".xlsx,.xls" disabled={disabled} onChange={handleFileChange} />
           </Button>
         </Box>
       )}

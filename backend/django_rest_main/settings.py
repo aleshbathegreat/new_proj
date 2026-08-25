@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'apps.sites',
     'apps.boq',
     'apps.progress',
+    'apps.survey',
 ]
 
 MIDDLEWARE = [

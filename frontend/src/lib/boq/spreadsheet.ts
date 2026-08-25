@@ -3,8 +3,9 @@ import type { GridColDef } from '@mui/x-data-grid';
 import type { BOQItemWrite } from '@/types/boq';
 
 export function formatBoqNumber(value: unknown, digits = 2) {
-  const n = Number(value ?? 0);
-  if (Number.isNaN(n)) return '0';
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (Number.isNaN(n)) return '—';
   return n.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
@@ -288,6 +289,7 @@ function normalizeHeader(raw: unknown): string {
     .trim();
 }
 
+/** For app-managed quantity fields that must always have a number (qty, package_qty, no). */
 function toNumber(value: unknown, fallback = 0): number {
   if (value === null || value === undefined || value === '') return fallback;
   if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
@@ -296,10 +298,58 @@ function toNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * For spreadsheet-sourced cost/duty/rate fields that are nullable on the backend.
+ * A blank cell — or an unparsable one — becomes `null`, meaning "not present
+ * in this BOQ's source spreadsheet," never a silent `0`.
+ */
+function toNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const cleaned = String(value).replace(/,/g, '').trim();
+  if (cleaned === '') return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
 function toString(value: unknown): string {
   if (value === null || value === undefined) return '';
   return String(value).trim();
 }
+
+/** Fields that are always meaningful app-managed quantities — never null. */
+const REQUIRED_NUMERIC_FIELDS = new Set<FieldKey>(['no', 'package_qty', 'qty']);
+
+/** Spreadsheet-sourced cost/duty/rate fields — nullable on the backend. */
+const NULLABLE_NUMERIC_FIELDS = new Set<FieldKey>([
+  'fob',
+  'curr_rate',
+  'bank_charges_pct',
+  'freight_pct',
+  'landing_pct',
+  'insurance_pct',
+  'cd_pct',
+  'acd_pct',
+  'rd_pct',
+  'st_pct',
+  'ast_pct',
+  'it_pct',
+  'cess_pct',
+  'bank_charges',
+  'freight_insurance',
+  'price_with_fi',
+  'landing',
+  'insurance',
+  'custom_duty',
+  'addl_custom_duty',
+  'regulatory_duty',
+  'sales_tax',
+  'addl_sales_tax',
+  'income_tax',
+  'cess_tax',
+  'ddp_unit_usd',
+  'ddp_unit_pkr',
+]);
 
 const EMPTY_ITEM = (): BOQItemWrite => ({
   pc1: '',
@@ -314,37 +364,39 @@ const EMPTY_ITEM = (): BOQItemWrite => ({
   package_qty: 0,
   qty: 0,
   actual_quantity: 0,
-  fob: 0,
+  // Spreadsheet-sourced fields default to null: "column not in this sheet"
+  // until a matching header cell actually sets a value below.
+  fob: null,
   hs_code_description: '',
   hs_code: '',
-  curr: 'USD',
+  curr: '',
   tax: '',
-  curr_rate: 0,
-  bank_charges_pct: 0,
-  freight_pct: 0,
-  landing_pct: 0,
-  insurance_pct: 0,
-  cd_pct: 0,
-  acd_pct: 0,
-  rd_pct: 0,
-  st_pct: 0,
-  ast_pct: 0,
-  it_pct: 0,
-  cess_pct: 0,
-  bank_charges: 0,
-  freight_insurance: 0,
-  price_with_fi: 0,
-  landing: 0,
-  insurance: 0,
-  custom_duty: 0,
-  addl_custom_duty: 0,
-  regulatory_duty: 0,
-  sales_tax: 0,
-  addl_sales_tax: 0,
-  income_tax: 0,
-  cess_tax: 0,
-  ddp_unit_usd: 0,
-  ddp_unit_pkr: 0,
+  curr_rate: null,
+  bank_charges_pct: null,
+  freight_pct: null,
+  landing_pct: null,
+  insurance_pct: null,
+  cd_pct: null,
+  acd_pct: null,
+  rd_pct: null,
+  st_pct: null,
+  ast_pct: null,
+  it_pct: null,
+  cess_pct: null,
+  bank_charges: null,
+  freight_insurance: null,
+  price_with_fi: null,
+  landing: null,
+  insurance: null,
+  custom_duty: null,
+  addl_custom_duty: null,
+  regulatory_duty: null,
+  sales_tax: null,
+  addl_sales_tax: null,
+  income_tax: null,
+  cess_tax: null,
+  ddp_unit_usd: null,
+  ddp_unit_pkr: null,
   quantity_tolerance_pct: 5,
 });
 
@@ -431,15 +483,19 @@ export function parseBoqSpreadsheet(file: ArrayBuffer): BOQItemWrite[] {
     row.forEach((cell, idx) => {
       const field = fieldByIndex[idx];
       if (!field) return;
+
       if (STRING_FIELDS.has(field)) {
         const s = toString(cell);
-        (item as unknown as Record<string, string | number>)[field] = s;
+        (item as unknown as Record<string, string>)[field] = s;
         if ((field === 'item' || field === 'item_description') && s) hasIdentity = true;
       } else if (field === 'no') {
         item.no = Math.max(1, Math.floor(toNumber(cell, r)));
         if (toString(cell)) hasIdentity = true;
-      } else {
-        (item as unknown as Record<string, string | number>)[field] = toNumber(cell);
+      } else if (REQUIRED_NUMERIC_FIELDS.has(field)) {
+        (item as unknown as Record<string, number>)[field] = toNumber(cell);
+      } else if (NULLABLE_NUMERIC_FIELDS.has(field)) {
+        // Column exists in this sheet — but leave null if this row's cell is blank.
+        (item as unknown as Record<string, number | null>)[field] = toNullableNumber(cell);
       }
     });
 
@@ -447,7 +503,7 @@ export function parseBoqSpreadsheet(file: ArrayBuffer): BOQItemWrite[] {
     if (!item.item) item.item = `ROW-${r}`;
     if (!item.item_description) item.item_description = item.item;
     if (!item.unit) item.unit = 'NOS';
-    if (!item.price_with_fi && item.fob) item.price_with_fi = item.fob;
+    if (item.price_with_fi == null && item.fob != null) item.price_with_fi = item.fob;
     items.push(item);
   }
 

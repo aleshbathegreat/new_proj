@@ -14,6 +14,7 @@ from .serializers import (
     BOQTemplateSerializer,
     BOQTemplateWriteSerializer
 )
+from .hs_code_fields import build_hs_code_profile
 
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -131,7 +132,40 @@ class BOQViewSet(viewsets.ModelViewSet):
             {'data': BOQItemSerializer(boq.items.all().order_by('no', 'item'), many=True).data},
             status=status.HTTP_200_OK,
         )
-    
+
+    @action(detail=True, methods=['get'], url_path='items/hs-codes')
+    def hs_codes(self, request, pk=None):
+        """Distinct HS codes present in this BOQ, for the search dropdown."""
+        boq = self.get_object()
+        codes = (
+            boq.items.exclude(hs_code='')
+            .values('hs_code', 'hs_code_description')
+            .distinct()
+            .order_by('hs_code')
+        )
+        return Response({'data': list(codes)})
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path=r'items/hs-codes/(?P<hs_code>[^/]+)',
+    )
+    def hs_code_detail(self, request, pk=None, hs_code=None):
+        """
+        Key-value profile of every HS-code-related field that has a value
+        for this HS code within this BOQ. Fields absent from this BOQ's
+        source spreadsheet (stored as NULL) are omitted rather than shown
+        as 0.
+        """
+        boq = self.get_object()
+        items = boq.items.filter(hs_code=hs_code)
+        if not items.exists():
+            return Response(
+                {'detail': 'HS Code not found in this BOQ.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(build_hs_code_profile(items))
+
     @action(detail=True, methods=['post'])
     def publish(self, request, pk=None):
         if request.user.role not in ('HOD', 'DIR', 'SYSTEM_ADMIN'):
@@ -259,4 +293,3 @@ class BOQTemplateViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-

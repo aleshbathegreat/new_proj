@@ -13,10 +13,17 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import Chip from '@mui/material/Chip';
+import Autocomplete from '@mui/material/Autocomplete';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
 import { DataGrid } from '@mui/x-data-grid';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PublishIcon from '@mui/icons-material/Publish';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import StatusChip from '@/components/molecules/StatusChip';
 import PageSkeleton from '@/components/atoms/PageSkeleton';
 import Toast from '@/components/atoms/Toast';
@@ -27,8 +34,10 @@ import { BOQ_SPREADSHEET_COLUMNS } from '@/lib/boq/spreadsheet';
 import {
   useBulkReplaceBoqItemsMutation,
   useCreateBoqItemMutation,
+  useGetBoqHsCodesQuery,
   useGetBoqItemsQuery,
   useGetBoqQuery,
+  useGetHsCodeProfileQuery,
   useMarkBoqReadyMutation,
   usePublishBoqMutation,
 } from '@/store/api/boqApi';
@@ -106,6 +115,15 @@ export default function BOQDetailPage() {
   });
   const [itemForm, setItemForm] = useState(emptyItemForm);
 
+  // --- HS Code lookup (moved inside the component, hooks must live here) ---
+  const { data: hsCodesData } = useGetBoqHsCodesQuery(boqId);
+  const hsCodes = hsCodesData?.data ?? [];
+  const [selectedHsCode, setSelectedHsCode] = useState<string | null>(null);
+  const { data: hsProfile, isFetching: loadingHsProfile } = useGetHsCodeProfileQuery(
+    { boqId, hsCode: selectedHsCode! },
+    { skip: !selectedHsCode }
+  );
+
   useEffect(() => {
     document.title = boq ? `BOQ — ${boq.project_name} | SC-GIMS` : 'BOQ | SC-GIMS';
   }, [boq]);
@@ -151,13 +169,20 @@ export default function BOQDetailPage() {
   };
 
   const handleAddItem = async () => {
-    const num = (key: string) => Number(itemForm[key]) || 0;
+    const requiredNum = (key: string) => Number(itemForm[key]) || 0;
+    const nullableNum = (key: string): number | null => {
+      const raw = itemForm[key];
+      if (raw === undefined || raw === null || raw.trim() === '') return null;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : null;
+    };
+
     try {
       await createItem({
         boqId,
         data: {
           pc1: itemForm.pc1,
-          no: Math.max(1, Math.floor(num('no') || 1)),
+          no: Math.max(1, Math.floor(requiredNum('no') || 1)),
           item_type: itemForm.item_type,
           item: itemForm.item,
           item_description: itemForm.item_description,
@@ -165,40 +190,40 @@ export default function BOQDetailPage() {
           model: itemForm.model,
           oem: itemForm.oem,
           unit: itemForm.unit || 'NOS',
-          package_qty: num('package_qty'),
-          qty: num('qty'),
+          package_qty: requiredNum('package_qty'),
+          qty: requiredNum('qty'),
           actual_quantity: 0,
-          fob: num('fob'),
+          fob: nullableNum('fob'),
           hs_code_description: itemForm.hs_code_description,
           hs_code: itemForm.hs_code,
-          curr: itemForm.curr || 'USD',
+          curr: itemForm.curr,
           tax: itemForm.tax,
-          curr_rate: num('curr_rate'),
-          bank_charges_pct: num('bank_charges_pct'),
-          freight_pct: num('freight_pct'),
-          landing_pct: num('landing_pct'),
-          insurance_pct: num('insurance_pct'),
-          cd_pct: num('cd_pct'),
-          acd_pct: num('acd_pct'),
-          rd_pct: num('rd_pct'),
-          st_pct: num('st_pct'),
-          ast_pct: num('ast_pct'),
-          it_pct: num('it_pct'),
-          cess_pct: num('cess_pct'),
-          bank_charges: num('bank_charges'),
-          freight_insurance: num('freight_insurance'),
-          price_with_fi: num('price_with_fi') || num('fob'),
-          landing: num('landing'),
-          insurance: num('insurance'),
-          custom_duty: num('custom_duty'),
-          addl_custom_duty: num('addl_custom_duty'),
-          regulatory_duty: num('regulatory_duty'),
-          sales_tax: num('sales_tax'),
-          addl_sales_tax: num('addl_sales_tax'),
-          income_tax: num('income_tax'),
-          cess_tax: num('cess_tax'),
-          ddp_unit_usd: num('ddp_unit_usd'),
-          ddp_unit_pkr: num('ddp_unit_pkr'),
+          curr_rate: nullableNum('curr_rate'),
+          bank_charges_pct: nullableNum('bank_charges_pct'),
+          freight_pct: nullableNum('freight_pct'),
+          landing_pct: nullableNum('landing_pct'),
+          insurance_pct: nullableNum('insurance_pct'),
+          cd_pct: nullableNum('cd_pct'),
+          acd_pct: nullableNum('acd_pct'),
+          rd_pct: nullableNum('rd_pct'),
+          st_pct: nullableNum('st_pct'),
+          ast_pct: nullableNum('ast_pct'),
+          it_pct: nullableNum('it_pct'),
+          cess_pct: nullableNum('cess_pct'),
+          bank_charges: nullableNum('bank_charges'),
+          freight_insurance: nullableNum('freight_insurance'),
+          price_with_fi: nullableNum('price_with_fi') ?? nullableNum('fob'),
+          landing: nullableNum('landing'),
+          insurance: nullableNum('insurance'),
+          custom_duty: nullableNum('custom_duty'),
+          addl_custom_duty: nullableNum('addl_custom_duty'),
+          regulatory_duty: nullableNum('regulatory_duty'),
+          sales_tax: nullableNum('sales_tax'),
+          addl_sales_tax: nullableNum('addl_sales_tax'),
+          income_tax: nullableNum('income_tax'),
+          cess_tax: nullableNum('cess_tax'),
+          ddp_unit_usd: nullableNum('ddp_unit_usd'),
+          ddp_unit_pkr: nullableNum('ddp_unit_pkr'),
           quantity_tolerance_pct: 5,
         },
       }).unwrap();
@@ -231,10 +256,7 @@ export default function BOQDetailPage() {
             Back
           </Button>
           <Typography variant="h5" component="h1">
-            {boq.project_name} — BOQ spreadsheet
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {boq.site_name} · Template: {boq.template || '—'} · Version {boq.version}
+            {boq.project_name} — BOQ 
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
@@ -295,21 +317,73 @@ export default function BOQDetailPage() {
         </Stack>
       </Paper>
 
-      {editable && canCreate && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Import spreadsheet
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Upload your BOQ Excel. Existing draft items are replaced with the sheet rows.
-          </Typography>
-          <BOQUploader disabled={importing} onParsed={handleImport} />
-        </Paper>
-      )}
+      {/* HS Code lookup */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          <SearchIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
+          HS Code lookup
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Search an HS Code used in this BOQ to see every related field that has a value.
+          Fields not present in this BOQ&apos;s spreadsheet are omitted rather than shown as zero.
+        </Typography>
 
-      <Paper sx={{ p: 3 }}>
+        <Autocomplete
+          options={hsCodes}
+          getOptionLabel={(o) => `${o.hs_code}${o.hs_code_description ? ` — ${o.hs_code_description}` : ''}`}
+          isOptionEqualToValue={(o, v) => o.hs_code === v.hs_code}
+          onChange={(_e, value) => setSelectedHsCode(value?.hs_code ?? null)}
+          renderInput={(params) => (
+            <TextField {...params} label="Search HS Code" placeholder="e.g. 8525.891" size="small" />
+          )}
+          sx={{ maxWidth: 480, mb: hsProfile ? 3 : 0 }}
+        />
+
+        {loadingHsProfile && (
+          <Typography variant="body2" color="text.secondary">
+            Loading…
+          </Typography>
+        )}
+
+        {hsProfile && (
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Matched items ({hsProfile.matched_items.length})
+            </Typography>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2 }}>
+              {hsProfile.matched_items.map((it) => (
+                <Chip key={it.id} label={`${it.item} — ${it.item_description}`} size="small" />
+              ))}
+            </Stack>
+
+            <Table size="small">
+              <TableBody>
+                {hsProfile.fields.map((f) => (
+                  <TableRow key={f.key}>
+                    <TableCell sx={{ fontWeight: 600, width: 220 }}>{f.label}</TableCell>
+                    <TableCell>
+                      {String(f.value)}
+                      {f.conflict && (
+                        <Chip
+                          label={`differs across items: ${f.all_values?.join(', ')}`}
+                          color="warning"
+                          size="small"
+                          sx={{ ml: 1 }}
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        )}
+      </Paper>
+
+      {/* Line items */}
+      <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
-          Line items (PC1 → TotalDDP PKR)
+          BOQ items (PC1 → TotalDDP PKR)
         </Typography>
         {loadingItems ? (
           <PageSkeleton />
@@ -337,6 +411,19 @@ export default function BOQDetailPage() {
           />
         )}
       </Paper>
+
+      {/* Import spreadsheet — now after Line items */}
+      {editable && canCreate && (
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Import new BOQ 
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Upload your BOQ file. Existing draft items are replaced with the sheet rows.
+          </Typography>
+          <BOQUploader disabled={importing} onParsed={handleImport} />
+        </Paper>
+      )}
 
       <Dialog open={publishOpen} onClose={() => setPublishOpen(false)}>
         <DialogTitle>Publish BOQ</DialogTitle>

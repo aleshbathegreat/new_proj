@@ -70,7 +70,7 @@ export default function BOQVariancePage() {
         <Box>
           <Typography variant="h5">Variance — {boq.project_name}</Typography>
           <Typography variant="body2" color="text.secondary">
-            {boq.site_name} · TotalDDP PKR {formatBoqNumber(totalDdpPkr)}
+            {boq.site_name || '-'} · TotalDDP PKR {formatBoqNumber(totalDdpPkr)}
           </Typography>
         </Box>
       </Stack>

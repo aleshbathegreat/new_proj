@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/v1/', include('apps.sites.urls')),
     path('api/v1/', include('apps.boq.urls')),
     path('api/v1/', include('apps.progress.urls')),
+    path('api/v1/', include('apps.survey.urls')),
     path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='docs'),
     path('auth/', include('apps.accounts.urls')),

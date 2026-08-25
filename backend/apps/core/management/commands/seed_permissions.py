@@ -5,6 +5,7 @@ from apps.core.models import Module, Permission, RolePermission
 
 MODULES = [
     ('projects', 'Projects'),
+    ('survey', 'Survey'),
     ('sites', 'Sites'),
     ('boq', 'BOQ'),
     ('boq-templates', 'BOQ Templates'),
@@ -29,6 +30,7 @@ ROLE_GRANTS = {
     'SYSTEM_ADMIN': {key: ACTIONS for key, _ in MODULES},
     'EXEC': {
         'projects': ['view'],
+        'survey': ['view'],
         'sites': ['view'],
         'boq': ['view'],
         'boq-templates': ['view'],
@@ -40,6 +42,7 @@ ROLE_GRANTS = {
     },
     'HOD': {
         'projects': ACTIONS,
+        'survey': ['ACTIONS'],
         'sites': ACTIONS,
         'boq': ACTIONS,
         'boq-templates': ACTIONS,
@@ -58,6 +61,7 @@ ROLE_GRANTS = {
     },
     'DIR': {
         'projects': ['view', 'update'],
+        'survey': ['view', 'update'],
         'sites': ['view', 'update'],
         'boq': ['view', 'update'],
         'boq-templates': ['view'],
@@ -71,6 +75,7 @@ ROLE_GRANTS = {
     },
     'SITE_ENG': {
         'projects': ['view'],
+        'survey': ['view', 'create', 'update'],
         'sites': ['view', 'update'],
         'boq': ['view'],
         'daily-progress': ['view', 'create', 'update'],
@@ -84,6 +89,7 @@ ROLE_GRANTS = {
     },
     'CONTRACTOR': {
         'projects': ['view'],
+        'survey': ['view', 'create', 'update'],
         'sites': ['view'],
         'boq': ['view'],
         'daily-progress': ['view', 'create'],
@@ -95,6 +101,7 @@ ROLE_GRANTS = {
     },
     'QA': {
         'projects': ['view'],
+        'survey': ['view'],
         'sites': ['view'],
         'boq': ['view'],
         'acceptance-tests': ACTIONS,
@@ -106,6 +113,7 @@ ROLE_GRANTS = {
     'VENDOR': {
         'sites': ['view'],
         'boq': ['view'],
+        'survey': ['view'],
         'inventory': ['view'],
         'provinces': ['view'],
     },

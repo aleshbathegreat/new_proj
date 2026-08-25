@@ -4,6 +4,7 @@ from apps.core.models import BaseModel
 from apps.projects.models import Project
 from django.conf import settings
 
+
 class BOQTemplate(BaseModel):
     SOURCE_CHOICES = [('MANUAL', 'Manual'), ('IMPORT', 'Excel Import')]
 
@@ -20,7 +21,8 @@ class BOQTemplate(BaseModel):
 
     class Meta:
         ordering = ['name']
-        
+
+
 class BOQ(BaseModel):
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
@@ -31,7 +33,10 @@ class BOQ(BaseModel):
     ]
 
     project = models.ForeignKey(Project, related_name='boqs', on_delete=models.CASCADE)
-    site = models.ForeignKey('sites.Site', related_name='boqs', on_delete=models.PROTECT)
+    site = models.ForeignKey(
+        'sites.Site', related_name='boqs', on_delete=models.PROTECT,
+        null=True, blank=True,
+    )
     version = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
     template = models.ForeignKey(
@@ -45,6 +50,11 @@ class BOQItem(BaseModel):
     """
     Line item matching the SC-GIMS import BOQ spreadsheet columns.
     Derived fields (fob_total, price_with_*, total_ddp_*) are computed properties.
+
+    Cost/duty/rate fields are nullable: `None` means the source spreadsheet
+    for this BOQ never had that column, distinct from an explicit value of 0.
+    This lets the HS-Code lookup feature show only fields actually present
+    in a given BOQ instead of a wall of zeroes.
     """
 
     boq = models.ForeignKey(BOQ, related_name='items', on_delete=models.CASCADE)
@@ -63,76 +73,91 @@ class BOQItem(BaseModel):
     qty = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
     # FOB / HS / currency
-    fob = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    fob = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
     hs_code_description = models.TextField(blank=True, default='')
     hs_code = models.CharField(max_length=50, blank=True, default='')
-    curr = models.CharField(max_length=10, default='USD')
+    curr = models.CharField(max_length=10, blank=True, default='')
     tax = models.CharField(max_length=50, blank=True, default='')
-    curr_rate = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    curr_rate = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
 
     # Percentage inputs
-    bank_charges_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    freight_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    landing_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    insurance_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    cd_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    acd_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    rd_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    st_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    ast_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    it_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    cess_pct = models.DecimalField(max_digits=8, decimal_places=4, default=0)
+    bank_charges_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    freight_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    landing_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    insurance_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    cd_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    acd_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    rd_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    st_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    ast_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    it_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    cess_pct = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
 
     # Absolute cost columns
-    bank_charges = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    bank_charges = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
     freight_insurance = models.DecimalField(
-        max_digits=14, decimal_places=4, default=0,
+        max_digits=14, decimal_places=4, null=True, blank=True,
         help_text='F/I',
     )
     price_with_fi = models.DecimalField(
-        max_digits=14, decimal_places=4, default=0,
+        max_digits=14, decimal_places=4, null=True, blank=True,
         help_text='PriceWithF/I',
     )
-    landing = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    insurance = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    custom_duty = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    addl_custom_duty = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    regulatory_duty = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    sales_tax = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    addl_sales_tax = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    income_tax = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    cess_tax = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    ddp_unit_usd = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    ddp_unit_pkr = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    landing = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    insurance = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    custom_duty = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    addl_custom_duty = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    regulatory_duty = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    sales_tax = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    addl_sales_tax = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    income_tax = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    cess_tax = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    ddp_unit_usd = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    ddp_unit_pkr = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
 
-    # App tracking (not in spreadsheet)
+    # App tracking (not in spreadsheet) — these stay non-nullable, they're
+    # app-managed values, not data that comes-or-doesn't from a spreadsheet.
     actual_quantity = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     quantity_tolerance_pct = models.DecimalField(max_digits=5, decimal_places=2, default=5)
 
     class Meta:
         ordering = ['no', 'item']
+
     # --- Derived (Excel formulas) ---
+    # Each property now returns None if any required input is missing,
+    # instead of raising or silently treating a missing column as zero.
 
     @property
     def fob_total(self):
+        if self.fob is None:
+            return None
         return self.fob * self.qty
 
     @property
     def price_with_landing(self):
         """PriceWithLanding (AF+AG) = PriceWithF/I + Landing."""
+        if self.price_with_fi is None or self.landing is None:
+            return None
         return self.price_with_fi + self.landing
 
     @property
     def price_with_insurance(self):
         """PriceWithInsurance (AH+AI) = PriceWithLanding + Insurance."""
-        return self.price_with_landing + self.insurance
+        pwl = self.price_with_landing
+        if pwl is None or self.insurance is None:
+            return None
+        return pwl + self.insurance
 
     @property
     def total_ddp_usd(self):
+        if self.ddp_unit_usd is None:
+            return None
         return self.ddp_unit_usd * self.qty
 
     @property
     def total_ddp_pkr(self):
+        if self.ddp_unit_pkr is None:
+            return None
         return self.ddp_unit_pkr * self.qty
 
     # Aliases used by progress / variance UIs

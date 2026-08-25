@@ -24,6 +24,10 @@ const defaultPermissions: ModulePermission[] = [
     return { key: '/projects', label: 'Projects', allowedRoles: roles, crud: fullCrud(roles) };
   })(),
   (() => {
+    const roles = ['EXEC', 'HOD', 'DIR', 'SYSTEM_ADMIN', 'AUDITOR'];
+    return { key: '/survey', label: 'Survey', allowedRoles: roles, crud: fullCrud(roles) };
+  })(),
+  (() => {
     const roles = ['EXEC', 'HOD', 'DIR', 'SITE_ENG', 'CONTRACTOR', 'SYSTEM_ADMIN', 'AUDITOR'];
     return { key: '/sites', label: 'Sites', allowedRoles: roles, crud: fullCrud(roles) };
   })(),

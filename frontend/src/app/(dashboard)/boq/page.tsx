@@ -74,7 +74,7 @@ export default function BOQListPage() {
       .map(([projectId, group]) => ({
         projectId,
         ...group,
-        boqs: [...group.boqs].sort((a, b) => a.site_name.localeCompare(b.site_name)),
+        boqs: [...group.boqs].sort((a, b) => (a.site_name ?? '').localeCompare(b.site_name ?? '')),
       }))
       .sort((a, b) => a.projectName.localeCompare(b.projectName));
   }, [boqs]);
@@ -214,13 +214,6 @@ export default function BOQListPage() {
             <DataTable
               rows={groupBoqs}
               columns={[
-                { field: 'site_name', headerName: 'Site', flex: 1.5 },
-                {
-                  field: 'template',
-                  headerName: 'Template',
-                  flex: 1,
-                  renderCell: ({ row }: { row: BOQ }) => row.template_name || '—',
-                },
                 {
                   field: 'version',
                   headerName: 'Version',

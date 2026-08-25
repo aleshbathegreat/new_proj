@@ -30,17 +30,17 @@ import FolderIcon from '@mui/icons-material/Folder';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import RuleIcon from '@mui/icons-material/Rule';
+//import RuleIcon from '@mui/icons-material/Rule';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import WarningIcon from '@mui/icons-material/Warning';
+//import WarningIcon from '@mui/icons-material/Warning';
 import TaskIcon from '@mui/icons-material/Task';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
-import BugReportIcon from '@mui/icons-material/BugReport';
-import EventNoteIcon from '@mui/icons-material/EventNote';
-import ChangeCircleIcon from '@mui/icons-material/ChangeCircle';
-import ReceiptIcon from '@mui/icons-material/Receipt';
-import InventoryIcon from '@mui/icons-material/Inventory';
+//import FactCheckIcon from '@mui/icons-material/FactCheck';
+//import BugReportIcon from '@mui/icons-material/BugReport';
+//import EventNoteIcon from '@mui/icons-material/EventNote';
+//import ChangeCircleIcon from '@mui/icons-material/ChangeCircle';
+//import ReceiptIcon from '@mui/icons-material/Receipt';
+//import InventoryIcon from '@mui/icons-material/Inventory';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useDispatch } from 'react-redux';
 import { useRouter, usePathname } from 'next/navigation';
@@ -48,9 +48,10 @@ import { usePermission } from '@/hooks/usePermission';
 import { logout } from '@/store/slices/authSlice';
 import { authService } from '@/services/authService';
 import { tokenService } from '@/services/tokenService';
-import VerifiedIcon from '@mui/icons-material/Verified';
+//import VerifiedIcon from '@mui/icons-material/Verified';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/store';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
 const drawerWidth = 240;
 
@@ -62,19 +63,20 @@ const drawerWidth = 240;
 const navItems = [
   { label: 'Home', icon: <DashboardIcon />, href: '/' },
   { label: 'Projects', icon: <FolderIcon />, href: '/projects' },
+  { label: 'Survey', icon: <AssessmentIcon />, href: '/survey' },
   { label: 'Sites', icon: <LocationOnIcon />, href: '/sites' },
   { label: 'BOQ', icon: <DescriptionIcon />, href: '/boq' },
-  { label: 'Work Progress', icon: <AssignmentIcon />, href: '/daily-progress' },
-  { label: 'Workflows', icon: <RuleIcon />, href: '/workflows' },
-  { label: 'Deviations', icon: <WarningIcon />, href: '/deviations' },
   { label: 'Tasks', icon: <TaskIcon />, href: '/tasks' },
-  { label: 'T&C Tests', icon: <FactCheckIcon />, href: '/acceptance-tests' },
-  { label: 'Snag List', icon: <BugReportIcon />, href: '/snag-list' },
-  { label: 'Field Logs', icon: <EventNoteIcon />, href: '/field-logs' },
-  { label: 'Variation Orders', icon: <ChangeCircleIcon />, href: '/variation-orders' },
-  { label: 'IPC', icon: <ReceiptIcon />, href: '/ipc' },
-  { label: 'Inventory', icon: <InventoryIcon />, href: '/inventory' },
-  { label: 'FAC Readiness', icon: <VerifiedIcon />, href: '/fac-readiness' },
+  { label: 'Work Progress', icon: <AssignmentIcon />, href: '/daily-progress' },
+  //{ label: 'Workflows', icon: <RuleIcon />, href: '/workflows' },
+  //{ label: 'Deviations', icon: <WarningIcon />, href: '/deviations' },
+  //{ label: 'T&C Tests', icon: <FactCheckIcon />, href: '/acceptance-tests' },
+  //{ label: 'Snag List', icon: <BugReportIcon />, href: '/snag-list' },
+  //{ label: 'Field Logs', icon: <EventNoteIcon />, href: '/field-logs' },
+  //{ label: 'Variation Orders', icon: <ChangeCircleIcon />, href: '/variation-orders' },
+  //{ label: 'IPC', icon: <ReceiptIcon />, href: '/ipc' },
+  //{ label: 'Inventory', icon: <InventoryIcon />, href: '/inventory' },
+  //{ label: 'FAC Readiness', icon: <VerifiedIcon />, href: '/fac-readiness' },
 ];
 
 function generateBreadcrumbs(pathname: string, dashboardHref: string) {

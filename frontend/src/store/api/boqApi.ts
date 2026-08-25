@@ -132,6 +132,20 @@ export const boqApi = baseApi.injectEndpoints({
         { type: 'Boq', id: 'LIST' },
       ],
     }),
+    getBoqHsCodes: builder.query<{ data: { hs_code: string; hs_code_description: string }[] }, string>({
+      query: (boqId) => `/api/v1/boq/${boqId}/items/hs-codes/`,
+      providesTags: (_r, _e, boqId) => [{ type: 'Boq', id: `${boqId}-hs-codes` }],
+    }),
+    getHsCodeProfile: builder.query<
+      {
+        hs_code: string;
+        matched_items: { id: string; item: string; item_description: string }[];
+        fields: { key: string; label: string; value: unknown; conflict: boolean; all_values: string[] | null }[];
+      },
+      { boqId: string; hsCode: string }
+    >({
+      query: ({ boqId, hsCode }) => `/api/v1/boq/${boqId}/items/hs-codes/${encodeURIComponent(hsCode)}/`,
+    }),  
     publishBoq: builder.mutation<BOQ, string>({
       query: (id) => ({
         url: `/api/v1/boq/${id}/publish/`,
@@ -169,4 +183,6 @@ export const {
   usePublishBoqMutation,
   useMarkBoqReadyMutation,
   useGetBoqItemQuery,
+  useGetBoqHsCodesQuery,
+  useGetHsCodeProfileQuery,
 } = boqApi;

@@ -69,6 +69,8 @@ export const baseApi = createApi({
     'Deviation',
     'Workflow',
     'KPICategory',
+    'Survey',
+    'SurveyItem',
   ],
   endpoints: () => ({}),
 });

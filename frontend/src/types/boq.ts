@@ -17,64 +17,65 @@ export interface BOQItemWrite {
   package_qty: number;
   qty: number;
   actual_quantity: number;
-  fob: number;
+  fob: number | null;
   hs_code_description: string;
   hs_code: string;
   curr: string;
   tax: string;
-  curr_rate: number;
-  bank_charges_pct: number;
-  freight_pct: number;
-  landing_pct: number;
-  insurance_pct: number;
-  cd_pct: number;
-  acd_pct: number;
-  rd_pct: number;
-  st_pct: number;
-  ast_pct: number;
-  it_pct: number;
-  cess_pct: number;
-  bank_charges: number;
-  freight_insurance: number;
-  price_with_fi: number;
-  landing: number;
-  insurance: number;
-  custom_duty: number;
-  addl_custom_duty: number;
-  regulatory_duty: number;
-  sales_tax: number;
-  addl_sales_tax: number;
-  income_tax: number;
-  cess_tax: number;
-  ddp_unit_usd: number;
-  ddp_unit_pkr: number;
+  curr_rate: number | null;
+  bank_charges_pct: number | null;
+  freight_pct: number | null;
+  landing_pct: number | null;
+  insurance_pct: number | null;
+  cd_pct: number | null;
+  acd_pct: number | null;
+  rd_pct: number | null;
+  st_pct: number | null;
+  ast_pct: number | null;
+  it_pct: number | null;
+  cess_pct: number | null;
+  bank_charges: number | null;
+  freight_insurance: number | null;
+  price_with_fi: number | null;
+  landing: number | null;
+  insurance: number | null;
+  custom_duty: number | null;
+  addl_custom_duty: number | null;
+  regulatory_duty: number | null;
+  sales_tax: number | null;
+  addl_sales_tax: number | null;
+  income_tax: number | null;
+  cess_tax: number | null;
+  ddp_unit_usd: number | null;
+  ddp_unit_pkr: number | null;
   quantity_tolerance_pct: number;
 }
 
 /**
  * Read model — mirrors `BOQItemSerializer` (includes derived + legacy aliases).
- * Decimals may arrive as strings from DRF.
+ * Decimals may arrive as strings from DRF. Derived fields can be `null`
+ * when a required input field was never present in this BOQ's source sheet.
  */
 export interface BOQItem extends BOQItemWrite {
   id: string;
   boq_id: string;
-  site_id: string;
-  site_name: string;
+  site_id: string | null;
+  site_name: string | null;
   project_id: string;
   project_name: string;
-  district_id: string;
-  district_name: string;
-  province_id: string;
-  province_name: string;
-  fob_total: number | string;
-  price_with_landing: number | string;
-  price_with_insurance: number | string;
-  total_ddp_usd: number | string;
-  total_ddp_pkr: number | string;
+  district_id: string | null;
+  district_name: string | null;
+  province_id: string | null;
+  province_name: string | null;
+  fob_total: number | string | null;
+  price_with_landing: number | string | null;
+  price_with_insurance: number | string | null;
+  total_ddp_usd: number | string | null;
+  total_ddp_pkr: number | string | null;
   item_code: string;
   description: string;
   planned_quantity: number | string;
-  amount: number | string;
+  amount: number | string | null;
   created_at: string;
   updated_at: string;
 }
@@ -84,8 +85,8 @@ export interface BOQ {
   id: string;
   project_id: string;
   project_name: string;
-  site_id: string;
-  site_name: string;
+  site_id: string | null;
+  site_name: string | null;
   version: number;
   status: BOQStatus;
   template_id: string | null;
@@ -99,7 +100,5 @@ export interface BOQ {
 /** Mirrors `BOQWriteSerializer`. */
 export interface BOQWrite {
   project_id: string;
-  site_id: string;
   version?: number;
-  template_id?: string | null;
 }
