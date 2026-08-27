@@ -20,6 +20,10 @@ class HasModulePermission(BasePermission):
         'items_bulk': 'update',
         'publish': 'update',
         'mark_ready': 'update',
+        'projects': 'view',
+        'project_districts': 'view',
+        'district_sites': 'view',
+        'export': 'view',
     }
 
     def has_permission(self, request, view):

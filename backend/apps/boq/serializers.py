@@ -50,20 +50,20 @@ class BOQItemSerializer(serializers.ModelSerializer):
 
     def get_district_id(self, obj):
         site = obj.boq.site
-        return site.town.district_id if site and site.town_id else None
+        return site.district_id if site else None
 
     def get_district_name(self, obj):
         site = obj.boq.site
-        return site.town.district.name if site and site.town_id else None
+        return site.district.name if site else None
 
     def get_province_id(self, obj):
         site = obj.boq.site
-        return site.town.district.province_id if site and site.town_id else None
+        return site.district.province_id if site else None
 
     def get_province_name(self, obj):
         site = obj.boq.site
-        return site.town.district.province.name if site and site.town_id else None
-    
+        return site.district.province.name if site else None
+
 
 class BOQItemWriteSerializer(serializers.ModelSerializer):
     boq_id = serializers.PrimaryKeyRelatedField(

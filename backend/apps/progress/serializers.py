@@ -2,6 +2,8 @@ from rest_framework import serializers
 from rest_framework.fields import empty
 
 from apps.boq.models import BOQ, BOQItem
+from apps.projects.models import Project
+from apps.provinces.models import District
 from apps.sites.models import Site
 from .models import DailyProgressEntry, KPICategory, ProgressTaskTemplate, SiteProgressTask, ModuleCatalogEntry, ItemCatalogEntry
 
@@ -24,14 +26,24 @@ class ProgressTaskTemplateSerializer(serializers.ModelSerializer):
 
 
 class KPICategorySerializer(serializers.ModelSerializer):
-    site_id = serializers.PrimaryKeyRelatedField(source='site', queryset=Site.objects.all())
-    site_name = serializers.CharField(source='site.name', read_only=True)
+    project_id = serializers.PrimaryKeyRelatedField(source='project', queryset=Project.objects.all())
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    district_id = serializers.PrimaryKeyRelatedField(source='district', queryset=District.objects.all())
+    district_name = serializers.CharField(source='district.name', read_only=True)
+    site_id = serializers.PrimaryKeyRelatedField(
+        source='site', queryset=Site.objects.all(), required=False, allow_null=True
+    )
+    site_name = serializers.CharField(source='site.name', read_only=True, default=None)
     subtask_count = serializers.SerializerMethodField()
 
     class Meta:
         model = KPICategory
         fields = [
             'id',
+            'project_id',
+            'project_name',
+            'district_id',
+            'district_name',
             'site_id',
             'site_name',
             'name',
@@ -48,12 +60,33 @@ class KPICategorySerializer(serializers.ModelSerializer):
     def validate_name(self, value):
         return value.strip()
 
+    def validate(self, attrs):
+        project = attrs.get('project') or getattr(self.instance, 'project', None)
+        district = attrs.get('district') or getattr(self.instance, 'district', None)
+        site = attrs.get('site', empty)
+        if site is empty:
+            site = getattr(self.instance, 'site', None)
+
+        if site and project and site.project_id != project.id:
+            raise serializers.ValidationError(
+                {'site_id': 'Site does not belong to the selected project.'}
+            )
+        if site and district and site.district_id != district.id:
+            raise serializers.ValidationError(
+                {'site_id': 'Site does not belong to the selected district.'}
+            )
+        return attrs
+
 
 class SiteProgressTaskSerializer(serializers.ModelSerializer):
-    site_id = serializers.PrimaryKeyRelatedField(source='site', queryset=Site.objects.all())
-    site_name = serializers.CharField(source='site.name', read_only=True)
-    project_id = serializers.UUIDField(source='site.project_id', read_only=True)
-    project_name = serializers.CharField(source='site.project.name', read_only=True)
+    project_id = serializers.PrimaryKeyRelatedField(source='project', queryset=Project.objects.all())
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    district_id = serializers.PrimaryKeyRelatedField(source='district', queryset=District.objects.all())
+    district_name = serializers.CharField(source='district.name', read_only=True)
+    site_id = serializers.PrimaryKeyRelatedField(
+        source='site', queryset=Site.objects.all(), required=False, allow_null=True
+    )
+    site_name = serializers.CharField(source='site.name', read_only=True, default=None)
     template_id = serializers.PrimaryKeyRelatedField(
         source='template',
         queryset=ProgressTaskTemplate.objects.all(),
@@ -98,10 +131,12 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
         model = SiteProgressTask
         fields = [
             'id',
-            'site_id',
-            'site_name',
             'project_id',
             'project_name',
+            'district_id',
+            'district_name',
+            'site_id',
+            'site_name',
             'template_id',
             'kpi_category_id',
             'kpi_category_name',
@@ -128,7 +163,11 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
         return sum((e.quantity for e in obj.entries.all()), 0)
 
     def validate(self, attrs):
-        site = attrs.get('site') or getattr(self.instance, 'site', None)
+        project = attrs.get('project') or getattr(self.instance, 'project', None)
+        district = attrs.get('district') or getattr(self.instance, 'district', None)
+        site = attrs.get('site', empty)
+        if site is empty:
+            site = getattr(self.instance, 'site', None)
         boq = attrs.get('boq', empty)
         if boq is empty:
             boq = getattr(self.instance, 'boq', None)
@@ -139,22 +178,48 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
         if kpi_category is empty:
             kpi_category = getattr(self.instance, 'kpi_category', None)
 
-        if boq and site and boq.site_id != site.id:
+        # Site, when set, must belong to the selected project + district.
+        if site and project and site.project_id != project.id:
             raise serializers.ValidationError(
-                {'boq_id': 'BOQ does not belong to the selected site.'}
+                {'site_id': 'Site does not belong to the selected project.'}
+            )
+        if site and district and site.district_id != district.id:
+            raise serializers.ValidationError(
+                {'site_id': 'Site does not belong to the selected district.'}
+            )
+
+        # BOQ scoping is project-level only (BOQ no longer requires a site).
+        if boq and project and boq.project_id != project.id:
+            raise serializers.ValidationError(
+                {'boq_id': 'BOQ does not belong to the selected project.'}
             )
         if boq_item and boq and boq_item.boq_id != boq.id:
             raise serializers.ValidationError(
                 {'boq_item_id': 'BOQ item does not belong to the selected BOQ.'}
             )
-        if boq_item and site and boq_item.boq.site_id != site.id:
+        if boq_item and project and boq_item.boq.project_id != project.id:
             raise serializers.ValidationError(
-                {'boq_item_id': 'BOQ item does not belong to the selected site.'}
+                {'boq_item_id': 'BOQ item does not belong to the selected project.'}
             )
-        if kpi_category and site and kpi_category.site_id != site.id:
-            raise serializers.ValidationError(
-                {'kpi_category_id': 'KPI category does not belong to the selected site.'}
-            )
+
+        # KPI category must be in the same project + district. If the
+        # category is itself site-specific, the task's site must match it
+        # exactly. A district-level category (no site) can group both
+        # site-specific and district-level tasks.
+        if kpi_category:
+            if kpi_category.project_id != (project.id if project else None):
+                raise serializers.ValidationError(
+                    {'kpi_category_id': 'KPI category does not belong to the selected project.'}
+                )
+            if kpi_category.district_id != (district.id if district else None):
+                raise serializers.ValidationError(
+                    {'kpi_category_id': 'KPI category does not belong to the selected district.'}
+                )
+            if kpi_category.site_id and kpi_category.site_id != (site.id if site else None):
+                raise serializers.ValidationError(
+                    {'kpi_category_id': 'KPI category is scoped to a different site.'}
+                )
+
         # Auto-fill boq from item
         if boq_item and not boq:
             attrs['boq'] = boq_item.boq
@@ -188,10 +253,12 @@ class SiteProgressTaskSerializer(serializers.ModelSerializer):
 
 
 class DailyProgressEntrySerializer(serializers.ModelSerializer):
-    site_id = serializers.PrimaryKeyRelatedField(source='site', queryset=Site.objects.all())
-    site_name = serializers.CharField(source='site.name', read_only=True)
-    project_id = serializers.UUIDField(source='site.project_id', read_only=True)
-    project_name = serializers.CharField(source='site.project.name', read_only=True)
+    site_id = serializers.UUIDField(source='site.id', read_only=True, default=None)
+    site_name = serializers.CharField(source='site.name', read_only=True, default=None)
+    project_id = serializers.UUIDField(source='site_task.project_id', read_only=True)
+    project_name = serializers.CharField(source='site_task.project.name', read_only=True)
+    district_id = serializers.UUIDField(source='site_task.district_id', read_only=True)
+    district_name = serializers.CharField(source='site_task.district.name', read_only=True)
     site_task_id = serializers.PrimaryKeyRelatedField(
         source='site_task', queryset=SiteProgressTask.objects.all()
     )
@@ -223,6 +290,8 @@ class DailyProgressEntrySerializer(serializers.ModelSerializer):
             'site_name',
             'project_id',
             'project_name',
+            'district_id',
+            'district_name',
             'site_task_id',
             'task_key',
             'task_name',
@@ -242,6 +311,8 @@ class DailyProgressEntrySerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = [
+            'site_id',
+            'site_name',
             'submitted_by_id',
             'submitted_by_name',
             'cumulative_quantity',
@@ -249,9 +320,10 @@ class DailyProgressEntrySerializer(serializers.ModelSerializer):
             'task_name',
             'task_unit',
             'planned_quantity',
-            'site_name',
             'project_id',
             'project_name',
+            'district_id',
+            'district_name',
             'boq_id',
             'boq_item_id',
             'boq_item_code',
@@ -270,18 +342,13 @@ class DailyProgressEntrySerializer(serializers.ModelSerializer):
         return sum((e.quantity for e in qs), 0)
 
     def validate(self, attrs):
-        site = attrs.get('site') or getattr(self.instance, 'site', None)
         site_task = attrs.get('site_task') or getattr(self.instance, 'site_task', None)
-        if site and site_task and site_task.site_id != site.id:
-            raise serializers.ValidationError(
-                {'site_task_id': 'Selected task does not belong to the selected site.'}
-            )
         if site_task and not site_task.is_active:
             raise serializers.ValidationError(
                 {'site_task_id': 'Cannot log progress against an inactive task.'}
             )
-        return attrs 
-
+        return attrs
+    
 class ModuleCatalogEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = ModuleCatalogEntry

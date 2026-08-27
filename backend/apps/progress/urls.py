@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     DailyProgressEntryViewSet,
     KPICategoryViewSet,
+    ProgressSummaryViewSet,
     ProgressTaskTemplateViewSet,
     SiteProgressTaskViewSet,
     ModuleCatalogViewSet,
@@ -24,5 +25,6 @@ router.register(
 router.register('daily-progress', DailyProgressEntryViewSet, basename='daily-progress')
 router.register('module-catalog', ModuleCatalogViewSet, basename='module-catalog')
 router.register('item-catalog', ItemCatalogViewSet, basename='item-catalog')
+router.register('progress-summary', ProgressSummaryViewSet, basename='progress-summary')
 
 urlpatterns = router.urls

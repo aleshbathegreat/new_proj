@@ -6,13 +6,13 @@ from django.core.management.base import BaseCommand
 from apps.accounts.models import User, UserProvinceAssignment, UserSiteAssignment
 from apps.boq.models import BOQ, BOQItem
 from apps.projects.models import Project
-from apps.provinces.models import Province, Town
+from apps.provinces.models import District, Province
 from apps.sites.models import Site
 
 PROJECTS = [
     {
         'province_name': 'Sindh',
-        'town_name': 'Karachi South',
+        'district_name': 'Karachi',
         'project_name': 'Karachi Safe City Phase 1',
         'program_code': 'SC-SINDH-01',
         'sites': [
@@ -22,14 +22,14 @@ PROJECTS = [
     },
     {
         'province_name': 'Punjab',
-        'town_name': 'Lahore City',
+        'district_name': 'Lahore',
         'project_name': 'Lahore Safe City Phase 1',
         'program_code': 'SC-PUNJAB-01',
         'sites': [('LHE-Site-01', 'ACTIVE')],
     },
     {
         'province_name': 'Balochistan',
-        'town_name': 'Quetta City',
+        'district_name': 'Quetta',
         'project_name': 'Quetta Safe City Phase 1',
         'program_code': 'SC-BALOCH-01',
         'sites': [('UET-Site-01', 'ACTIVE')],
@@ -148,11 +148,11 @@ class Command(BaseCommand):
 
         for entry in PROJECTS:
             province = Province.objects.filter(name=entry['province_name']).first()
-            town = Town.objects.filter(
-                name=entry['town_name'],
-                district__province=province,
+            district = District.objects.filter(
+                name=entry['district_name'],
+                province=province,
             ).first()
-            if province is None or town is None:
+            if province is None or district is None:
                 self.stdout.write(self.style.WARNING(
                     f"Skipping {entry['project_name']} — run seed_provinces/seed_geo first."
                 ))
@@ -182,10 +182,10 @@ class Command(BaseCommand):
                     name=site_name,
                     defaults={
                         'project': project,
-                        'town': town,
+                        'district': district,
                         'status': site_status,
                         'geofence_radius_m': 100,
-                        'location': f'{town.name} node',
+                        'location': f'{district.name} node',
                     },
                 )
                 if site_created:
@@ -202,12 +202,15 @@ class Command(BaseCommand):
 
                 # First site: published BOQ with items; second: draft READY shell
                 boq_status = 'PUBLISHED' if idx == 0 else 'DRAFT'
-                boq, boq_created = BOQ.objects.get_or_create(
+                boq = BOQ.objects.filter(project=project, site=site, version=1).order_by('created_at').first()
+                boq_created = boq is None
+                if boq_created:
+                    boq = BOQ.objects.create(
                     project=project,
                     site=site,
                     version=1,
-                    defaults={'status': boq_status, 'template': entry['program_code']},
-                )
+                    status=boq_status,
+                    )
                 if boq_created:
                     self.stdout.write(f"    Created BOQ ({boq_status}) for {site.name}")
                     if boq_status == 'PUBLISHED':

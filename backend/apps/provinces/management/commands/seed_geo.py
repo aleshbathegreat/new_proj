@@ -1,78 +1,29 @@
 from django.core.management.base import BaseCommand
 
-from apps.provinces.models import District, Province, Town
+from apps.provinces.models import District, Province
 
-# Province → District → Towns
+# Province → Districts
 GEO_DATA = {
     'Sindh': [
-        {
-            'name': 'Karachi',
-            'code': 'D-KHI',
-            'towns': [
-                {'name': 'Karachi South', 'code': 'KHI-S'},
-                {'name': 'Karachi East', 'code': 'KHI-E'},
-                {'name': 'Karachi West', 'code': 'KHI-W'},
-            ],
-        },
-        {
-            'name': 'Hyderabad',
-            'code': 'D-HYD',
-            'towns': [
-                {'name': 'Hyderabad City', 'code': 'HYD-C'},
-                {'name': 'Qasimabad', 'code': 'HYD-Q'},
-            ],
-        },
-        {
-            'name': 'Sukkur',
-            'code': 'D-SKZ',
-            'towns': [{'name': 'Sukkur City', 'code': 'SKZ-C'}],
-        },
+        {'name': 'Karachi', 'code': 'D-KHI'},
+        {'name': 'Hyderabad', 'code': 'D-HYD'},
+        {'name': 'Sukkur', 'code': 'D-SKZ'},
     ],
     'Punjab': [
-        {
-            'name': 'Lahore',
-            'code': 'D-LHE',
-            'towns': [
-                {'name': 'Lahore City', 'code': 'LHE-C'},
-                {'name': 'Raiwind', 'code': 'LHE-R'},
-            ],
-        },
-        {
-            'name': 'Faisalabad',
-            'code': 'D-FSD',
-            'towns': [{'name': 'Faisalabad City', 'code': 'FSD-C'}],
-        },
-        {
-            'name': 'Multan',
-            'code': 'D-MUX',
-            'towns': [{'name': 'Multan City', 'code': 'MUX-C'}],
-        },
+        {'name': 'Lahore', 'code': 'D-LHE'},
+        {'name': 'Faisalabad', 'code': 'D-FSD'},
+        {'name': 'Multan', 'code': 'D-MUX'},
     ],
     'Balochistan': [
-        {
-            'name': 'Quetta',
-            'code': 'D-UET',
-            'towns': [
-                {'name': 'Quetta City', 'code': 'UET-C'},
-                {'name': 'Sariab', 'code': 'UET-S'},
-            ],
-        },
-        {
-            'name': 'Gwadar',
-            'code': 'D-GWD',
-            'towns': [{'name': 'Gwadar City', 'code': 'GWD-C'}],
-        },
-        {
-            'name': 'Kech',
-            'code': 'D-TUK',
-            'towns': [{'name': 'Turbat', 'code': 'TUK-C'}],
-        },
+        {'name': 'Quetta', 'code': 'D-UET'},
+        {'name': 'Gwadar', 'code': 'D-GWD'},
+        {'name': 'Kech', 'code': 'D-TUK'},
     ],
 }
 
 
 class Command(BaseCommand):
-    help = 'Seed districts and towns under each province'
+    help = 'Seed districts under each province'
 
     def handle(self, *args, **options):
         for province_name, districts in GEO_DATA.items():
@@ -87,18 +38,11 @@ class Command(BaseCommand):
             for d in districts:
                 district, created = District.objects.update_or_create(
                     province=province,
-                    code=d['code'],
-                    defaults={'name': d['name']},
+                    name=d['name'],
+                    defaults={'code': d['code']},
                 )
                 self.stdout.write(
                     f"{'Created' if created else 'Updated'} district: {district}"
                 )
-                for t in d['towns']:
-                    town, t_created = Town.objects.update_or_create(
-                        district=district,
-                        name=t['name'],
-                        defaults={'code': t['code']},
-                    )
-                    self.stdout.write(
-                        f"  {'Created' if t_created else 'Updated'} town: {town}"
-                    )
+
+        self.stdout.write(self.style.SUCCESS('Geo seed finished.'))

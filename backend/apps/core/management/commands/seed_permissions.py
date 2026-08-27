@@ -20,7 +20,7 @@ MODULES = [
     ('ipc', 'IPC'),
     ('inventory', 'Inventory'),
     ('fac-readiness', 'FAC Readiness'),
-    ('provinces', 'Provinces, Districts & Towns'),
+    ('provinces', 'Provinces & Districts'),
 ]
 
 ACTIONS = ['view', 'create', 'update', 'delete']
@@ -42,7 +42,7 @@ ROLE_GRANTS = {
     },
     'HOD': {
         'projects': ACTIONS,
-        'survey': ['ACTIONS'],
+        'survey': ACTIONS,
         'sites': ACTIONS,
         'boq': ACTIONS,
         'boq-templates': ACTIONS,

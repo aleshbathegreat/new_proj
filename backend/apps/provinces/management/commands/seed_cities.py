@@ -3,8 +3,8 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'Deprecated alias — runs seed_geo (Province → District → Town)'
-
+    help = 'Deprecated alias — runs seed_geo (Province → District)'
+    
     def handle(self, *args, **options):
         self.stdout.write('seed_cities is deprecated; running seed_geo…')
         call_command('seed_geo')

@@ -24,22 +24,3 @@ class District(BaseModel):
 
     def __str__(self):
         return f'{self.name}, {self.province.name}'
-
-
-class Town(BaseModel):
-    district = models.ForeignKey(
-        District, related_name='towns', on_delete=models.CASCADE
-    )
-    name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
-
-    class Meta:
-        ordering = ['name']
-        unique_together = ('district', 'name')
-
-    @property
-    def province(self):
-        return self.district.province
-
-    def __str__(self):
-        return f'{self.name}, {self.district.name}'

@@ -218,9 +218,8 @@ class BOQItemViewSet(viewsets.ModelViewSet):
             'boq',
             'boq__project',
             'boq__site',
-            'boq__site__town',
-            'boq__site__town__district',
-            'boq__site__town__district__province',
+            'boq__site__district',
+            'boq__site__district__province',
         ).order_by('boq_id', 'no', 'item')
         boq_id = self.request.query_params.get('boq_id')
         if boq_id:

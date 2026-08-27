@@ -31,23 +31,33 @@ class ProgressTaskTemplate(BaseModel):
 
 class KPICategory(BaseModel):
     """
-    Admin-defined grouping of subtasks (SiteProgressTask rows) for one site.
-    Per-site, not shared across sites. Distinct from kpi_schema/kpi_values,
-    which define per-entry custom fields on an individual subtask.
+    Admin-defined grouping of subtasks (SiteProgressTask rows).
+    Scoped to project + district always; site is optional — when null,
+    this Module applies at the district level with no specific site.
     """
 
-    site = models.ForeignKey(Site, related_name='kpi_categories', on_delete=models.CASCADE)
+    project = models.ForeignKey(
+        'projects.Project', related_name='kpi_categories', on_delete=models.CASCADE
+    )
+    district = models.ForeignKey(
+        'provinces.District', related_name='kpi_categories', on_delete=models.CASCADE
+    )
+    site = models.ForeignKey(
+        Site, related_name='kpi_categories', on_delete=models.CASCADE,
+        null=True, blank=True,
+    )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default='')
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['sort_order', 'name']
-        unique_together = [('site', 'name')]
+        unique_together = [('project', 'district', 'site', 'name')]
         verbose_name_plural = 'KPI categories'
 
     def __str__(self):
-        return f'{self.site.name}: {self.name}'
+        scope = self.site.name if self.site_id else self.district.name
+        return f'{scope}: {self.name}'
 
 class ModuleCatalogEntry(BaseModel):
     """Global, cross-site catalog of Module names — grows automatically
@@ -78,11 +88,22 @@ class ItemCatalogEntry(BaseModel):
 
 class SiteProgressTask(BaseModel):
     """
-    Progress tasks enabled for a specific site, optionally linked to a BOQ line.
-    Project comes via site.project; BOQ via boq / boq_item.
+    Progress tasks scoped to project + district always; site is optional —
+    when null, this task tracks progress at the district level with no
+    specific site (e.g. a project that hasn't broken ground into individual
+    sites yet, or work that is inherently district-wide).
     """
 
-    site = models.ForeignKey(Site, related_name='progress_tasks', on_delete=models.CASCADE)
+    project = models.ForeignKey(
+        'projects.Project', related_name='progress_tasks', on_delete=models.CASCADE
+    )
+    district = models.ForeignKey(
+        'provinces.District', related_name='progress_tasks', on_delete=models.CASCADE
+    )
+    site = models.ForeignKey(
+        Site, related_name='progress_tasks', on_delete=models.CASCADE,
+        null=True, blank=True,
+    )
     template = models.ForeignKey(
         ProgressTaskTemplate,
         related_name='site_tasks',
@@ -90,7 +111,6 @@ class SiteProgressTask(BaseModel):
         null=True,
         blank=True,
     )
-
     kpi_category = models.ForeignKey(
         KPICategory,
         related_name='subtasks',
@@ -121,28 +141,34 @@ class SiteProgressTask(BaseModel):
     sort_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     kpi_schema = models.JSONField(default=list, blank=True)
-    # Free-form admin key/values (spec notes, vendor prefs, etc.)
     attributes = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ['sort_order', 'name']
-        unique_together = [('site', 'key')]
+        unique_together = [('project', 'district', 'site', 'key')]
 
     def __str__(self):
-        return f'{self.site.name}: {self.name}'
+        scope = self.site.name if self.site_id else self.district.name
+        return f'{scope}: {self.name}'
 
     def sync_boq_actual(self):
-        """Push cumulative logged qty onto linked BOQItem.actual_quantity."""
         if not self.boq_item_id:
             return
         total = self.entries.aggregate(s=Sum('quantity'))['s'] or 0
         BOQItem.objects.filter(pk=self.boq_item_id).update(actual_quantity=total)
 
-
 class DailyProgressEntry(BaseModel):
-    """One day's reported quantity (+ optional KPI values) for a site task."""
+    """
+    One day's reported quantity for a task. `site` is nullable and, when
+    present, is always derived from `site_task.site` (kept for convenient
+    filtering/select_related) — project/district scope always comes via
+    `site_task`.
+    """
 
-    site = models.ForeignKey(Site, related_name='daily_progress', on_delete=models.CASCADE)
+    site = models.ForeignKey(
+        Site, related_name='daily_progress', on_delete=models.CASCADE,
+        null=True, blank=True,
+    )
     site_task = models.ForeignKey(
         SiteProgressTask,
         related_name='entries',
@@ -150,7 +176,6 @@ class DailyProgressEntry(BaseModel):
     )
     date = models.DateField()
     quantity = models.DecimalField(max_digits=14, decimal_places=2, default=0)
-    # Values keyed by kpi_schema[].key
     kpi_values = models.JSONField(default=dict, blank=True)
     remarks = models.TextField(blank=True, default='')
     submitted_by = models.ForeignKey(
@@ -162,6 +187,14 @@ class DailyProgressEntry(BaseModel):
     class Meta:
         ordering = ['-date', '-created_at']
         unique_together = [('site_task', 'date')]
+
+    def save(self, *args, **kwargs):
+        # Keep `site` in sync with the task's site (may be None) so
+        # queries filtering DailyProgressEntry by site_id stay correct
+        # without every caller needing to join through site_task.
+        if self.site_task_id and self.site_id != self.site_task.site_id:
+            self.site_id = self.site_task.site_id
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.site_task.key} @ {self.date}: {self.quantity}'
