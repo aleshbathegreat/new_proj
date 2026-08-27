@@ -106,7 +106,7 @@ export default function SiteDetailPage() {
     );
   }
 
-  const locationParts = [site.town_name, site.district_name, site.province_name].filter(Boolean);
+  const locationParts = [site.district_name, site.province_name].filter(Boolean);
   const boqsForSite = boqsData?.data ?? [];
 
   const disciplineLabel = (name: string) => disciplines.find((d) => d.name === name)?.label ?? name;

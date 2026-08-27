@@ -27,9 +27,9 @@ import {
   useDeleteDistrictMutation,
   useGetDistrictsQuery,
   useGetProvinceQuery,
-  useGetTownsQuery,
   useUpdateDistrictMutation,
 } from '@/store/api/provinceApi';
+import { useGetSitesQuery } from '@/store/api/siteApi';
 
 const emptyForm = { name: '', code: '' };
 
@@ -44,14 +44,14 @@ export default function ProvinceDistrictsPage() {
     isLoading: isProvinceLoading,
   } = useGetProvinceQuery(provinceId);
   const { data: districtsData } = useGetDistrictsQuery({ province_id: provinceId, page_size: 200 });
-  const { data: townsData } = useGetTownsQuery({ province_id: provinceId, page_size: 500 });
+  const { data: sitesData } = useGetSitesQuery({ province_id: provinceId, page_size: 500 });
 
   const [createDistrict] = useCreateDistrictMutation();
   const [updateDistrict] = useUpdateDistrictMutation();
   const [deleteDistrict] = useDeleteDistrictMutation();
 
   const districtsInProvince = districtsData?.data ?? [];
-  const towns = townsData?.data ?? [];
+  const sites = sitesData?.data ?? [];
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -96,10 +96,10 @@ export default function ProvinceDistrictsPage() {
   };
 
   const requestDelete = (district: District) => {
-    const townsInDistrict = towns.filter((t) => t.district_id === district.id);
-    if (townsInDistrict.length > 0) {
+    const sitesInDistrict = sites.filter((s) => s.district_id === district.id);
+    if (sitesInDistrict.length > 0) {
       setBlockedMessage(
-        `Cannot delete ${district.name} — still referenced by ${townsInDistrict.length} town(s). Reassign or remove those towns first.`
+        `Cannot delete ${district.name} — still referenced by ${sitesInDistrict.length} site(s). Reassign or remove those sites first.`
       );
       return;
     }
@@ -170,7 +170,7 @@ export default function ProvinceDistrictsPage() {
       </Box>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Click a district to manage its towns.
+        Click a district to view its sites.
       </Typography>
 
       {blockedMessage && (
@@ -188,7 +188,7 @@ export default function ProvinceDistrictsPage() {
       ) : (
         <Grid container spacing={2}>
           {districtsInProvince.map((district) => {
-            const townCount = towns.filter((t) => t.district_id === district.id).length;
+            const siteCount = sites.filter((s) => s.district_id === district.id).length;
             return (
               <Grid key={district.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Paper
@@ -215,7 +215,7 @@ export default function ProvinceDistrictsPage() {
                       actions={[
                         {
                           key: 'view',
-                          label: 'View towns',
+                          label: 'View sites',
                           icon: <VisibilityIcon fontSize="small" />,
                           onClick: () => router.push(`/admin/districts/${district.id}`),
                         },
@@ -241,7 +241,7 @@ export default function ProvinceDistrictsPage() {
                   </Typography>
                   <Chip label={district.code} size="small" variant="outlined" sx={{ mt: 0.5, mb: 1 }} />
                   <Typography variant="body2" color="text.secondary">
-                    {townCount} town{townCount === 1 ? '' : 's'}
+                    {siteCount} site{siteCount === 1 ? '' : 's'}
                   </Typography>
                 </Paper>
               </Grid>

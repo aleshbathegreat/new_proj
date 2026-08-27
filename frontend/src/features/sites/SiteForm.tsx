@@ -10,12 +10,11 @@ import Stack from '@mui/material/Stack';
 import FormField from '@/components/molecules/FormField';
 import type { CreateSiteDto } from '@/types/site';
 import { useGetProjectsQuery } from '@/store/api/projectApi';
-import { useGetDistrictsQuery, useGetTownsQuery } from '@/store/api/provinceApi';
+import { useGetDistrictsQuery } from '@/store/api/provinceApi';
 
 const siteSchema = z.object({
   project_id: z.string().min(1, 'Project is required'),
   district_id: z.string().min(1, 'District is required'),
-  town_id: z.string().optional(),
   name: z.string().min(1, 'Site name is required'),
   location: z.string().optional(),
   latitude: z.coerce.number().optional(),
@@ -47,7 +46,6 @@ export default function SiteForm({
   });
 
   const selectedProjectId = useWatch({ control, name: 'project_id' });
-  const selectedDistrictId = useWatch({ control, name: 'district_id' });
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const provinceId = selectedProject?.province_id;
 
@@ -55,41 +53,22 @@ export default function SiteForm({
     { province_id: provinceId, page_size: 200 },
     { skip: !provinceId }
   );
-  const { data: townsData } = useGetTownsQuery(
-    { district_id: selectedDistrictId, page_size: 200 },
-    { skip: !selectedDistrictId }
-  );
 
   const districts = districtsData?.data ?? [];
-  const towns = townsData?.data ?? [];
 
   const prevProjectId = useRef(selectedProjectId);
-  const prevDistrictId = useRef(selectedDistrictId);
 
   useEffect(() => {
     if (prevProjectId.current !== selectedProjectId) {
       if (prevProjectId.current) {
         setValue('district_id', '');
-        setValue('town_id', '');
       }
       prevProjectId.current = selectedProjectId;
     }
   }, [selectedProjectId, setValue]);
 
-  useEffect(() => {
-    if (prevDistrictId.current !== selectedDistrictId) {
-      if (prevDistrictId.current) {
-        setValue('town_id', '');
-      }
-      prevDistrictId.current = selectedDistrictId;
-    }
-  }, [selectedDistrictId, setValue]);
-
   const submitHandler = (data: SiteFormValues) => {
-    onSubmit({
-      ...data,
-      town_id: data.town_id || undefined,
-    });
+    onSubmit(data);
   };
 
   return (
@@ -107,13 +86,6 @@ export default function SiteForm({
         label={selectedProject ? 'District' : 'Select a project first'}
         variant="select"
         options={districts.map((d) => ({ label: d.name, value: d.id }))}
-      />
-      <FormField
-        name="town_id"
-        control={control}
-        label={selectedDistrictId ? 'Town (optional)' : 'Select a district first'}
-        variant="select"
-        options={towns.map((t) => ({ label: t.name, value: t.id }))}
       />
       <FormField name="name" control={control} label="Site name" />
       <FormField name="location" control={control} label="Location" />

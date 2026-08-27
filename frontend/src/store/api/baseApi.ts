@@ -59,7 +59,6 @@ export const baseApi = createApi({
     'Permission',
     'Province',
     'District',
-    'Town',
     'City',
     'User',
     'Role',

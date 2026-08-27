@@ -237,8 +237,15 @@ export default function ProgressTasksAdminPage() {
 
   const saveSiteTask = async () => {
     if (!siteId) return;
+    const selectedSite = sites.find((s) => s.id === siteId);
+    if (!selectedSite) {
+      setToast({ open: true, message: 'Selected site not found. Refresh and try again.', severity: 'error' });
+      return;
+    }
     try {
       const payload = {
+        project_id: selectedSite.project_id,
+        district_id: selectedSite.district_id,
         site_id: siteId,
         template_id: siteTaskForm.template_id || null,
         boq_id: siteTaskForm.boq_id || null,
@@ -271,7 +278,7 @@ export default function ProgressTasksAdminPage() {
       });
     }
   };
-
+  
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 1 }}>

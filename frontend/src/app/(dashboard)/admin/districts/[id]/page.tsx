@@ -1,62 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Grid';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
 import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import LocationCityIcon from '@mui/icons-material/LocationCity';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RowActionsMenu from '@/components/molecules/RowActionsMenu';
-import type { Town } from '@/types/site';
-import {
-  useCreateTownMutation,
-  useDeleteTownMutation,
-  useGetDistrictQuery,
-  useGetTownsQuery,
-  useUpdateTownMutation,
-} from '@/store/api/provinceApi';
+import StatusChip from '@/components/molecules/StatusChip';
+import { useGetDistrictQuery } from '@/store/api/provinceApi';
 import { useGetSitesQuery } from '@/store/api/siteApi';
 
-const emptyForm = { name: '', code: '' };
-
-export default function DistrictTownsPage() {
+export default function DistrictSitesPage() {
   const params = useParams();
   const router = useRouter();
   const districtId = params.id as string;
 
   const { data: district, isError: districtError } = useGetDistrictQuery(districtId);
-  const { data: townsData } = useGetTownsQuery({ district_id: districtId, page_size: 200 });
-  const { data: sitesData } = useGetSitesQuery({ page_size: 500 });
+  const { data: sitesData } = useGetSitesQuery({ district_id: districtId, page_size: 500 });
 
-  const [createTown] = useCreateTownMutation();
-  const [updateTown] = useUpdateTownMutation();
-  const [deleteTown] = useDeleteTownMutation();
-
-  const townsInDistrict = townsData?.data ?? [];
   const sites = sitesData?.data ?? [];
 
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [townToDelete, setTownToDelete] = useState<Town | null>(null);
-  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
-
   useEffect(() => {
-    document.title = district ? `${district.name} Towns | SC-GIMS` : 'Towns | SC-GIMS';
+    document.title = district ? `${district.name} Sites | SC-GIMS` : 'District Sites | SC-GIMS';
   }, [district]);
 
   if (districtError || !district) {
@@ -74,61 +46,6 @@ export default function DistrictTownsPage() {
     );
   }
 
-  const openCreate = () => {
-    setEditingId(null);
-    setForm(emptyForm);
-    setOpen(true);
-  };
-
-  const openEdit = (town: Town) => {
-    setEditingId(town.id);
-    setForm({ name: town.name, code: town.code });
-    setOpen(true);
-  };
-
-  const handleSave = async () => {
-    try {
-      if (editingId) {
-        await updateTown({
-          id: editingId,
-          data: { name: form.name, code: form.code.toUpperCase() },
-        }).unwrap();
-      } else {
-        await createTown({
-          name: form.name,
-          code: form.code.toUpperCase(),
-          district_id: districtId,
-        }).unwrap();
-      }
-      setOpen(false);
-    } catch {
-      setBlockedMessage('Failed to save town. Please try again.');
-    }
-  };
-
-  const requestDelete = (town: Town) => {
-    const sitesUsingTown = sites.filter((s) => s.town_id === town.id);
-    if (sitesUsingTown.length > 0) {
-      setBlockedMessage(
-        `Cannot delete ${town.name} — still referenced by ${sitesUsingTown.length} site(s). Reassign or remove those sites first.`
-      );
-      return;
-    }
-    setBlockedMessage(null);
-    setTownToDelete(town);
-  };
-
-  const confirmDelete = async () => {
-    if (townToDelete) {
-      try {
-        await deleteTown(townToDelete.id).unwrap();
-      } catch {
-        setBlockedMessage('Failed to delete town. Please try again.');
-      }
-    }
-    setTownToDelete(null);
-  };
-
   return (
     <Box>
       <Button
@@ -141,139 +58,78 @@ export default function DistrictTownsPage() {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" component="h1">
-          {district.name} — Towns
+          {district.name} — Sites
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-          Add Town
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => router.push(`/sites/new?district_id=${districtId}`)}
+        >
+          Add Site
         </Button>
       </Box>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Click a town to view its sites.
+        Sites located in {district.name}.
       </Typography>
 
-      {blockedMessage && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setBlockedMessage(null)}>
-          {blockedMessage}
-        </Alert>
-      )}
-
-      {townsInDistrict.length === 0 ? (
+      {sites.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            No towns added yet for {district.name}.
+            No sites added yet for {district.name}.
           </Typography>
         </Paper>
       ) : (
         <Grid container spacing={2}>
-          {townsInDistrict.map((town) => {
-            const siteCount = sites.filter((s) => s.town_id === town.id).length;
-            return (
-              <Grid key={town.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Paper
-                  onClick={() => router.push(`/admin/towns/${town.id}`)}
+          {sites.map((site) => (
+            <Grid key={site.id} size={{ xs: 12, sm: 6, md: 4 }}>
+              <Paper
+                onClick={() => router.push(`/sites/${site.id}`)}
+                sx={{
+                  p: 3,
+                  cursor: 'pointer',
+                  borderRadius: 3,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  transition: 'box-shadow 0.25s ease, transform 0.25s ease',
+                  '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' },
+                }}
+              >
+                <Box
                   sx={{
-                    p: 3,
-                    cursor: 'pointer',
-                    borderRadius: 3,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    transition: 'box-shadow 0.25s ease, transform 0.25s ease',
-                    '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' },
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
                   }}
                 >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <LocationCityIcon color="primary" sx={{ fontSize: 36, mb: 1 }} />
-                    <RowActionsMenu
-                      actions={[
-                        {
-                          key: 'view',
-                          label: 'View sites',
-                          icon: <VisibilityIcon fontSize="small" />,
-                          onClick: () => router.push(`/admin/towns/${town.id}`),
-                        },
-                        {
-                          key: 'edit',
-                          label: 'Edit',
-                          icon: <EditIcon fontSize="small" />,
-                          onClick: () => openEdit(town),
-                        },
-                        {
-                          key: 'delete',
-                          label: 'Delete',
-                          icon: <DeleteIcon fontSize="small" />,
-                          destructive: true,
-                          dividerBefore: true,
-                          onClick: () => requestDelete(town),
-                        },
-                      ]}
-                    />
-                  </Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {town.name}
-                  </Typography>
-                  <Chip label={town.code} size="small" variant="outlined" sx={{ mt: 0.5, mb: 1 }} />
+                  <LocationOnIcon color="primary" sx={{ fontSize: 36, mb: 1 }} />
+                  <RowActionsMenu
+                    actions={[
+                      {
+                        key: 'view',
+                        label: 'View site',
+                        icon: <VisibilityIcon fontSize="small" />,
+                        onClick: () => router.push(`/sites/${site.id}`),
+                      },
+                    ]}
+                  />
+                </Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  {site.name}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5, mb: 1 }}>
+                  <StatusChip status={site.status} />
+                </Box>
+                {site.location && (
                   <Typography variant="body2" color="text.secondary">
-                    {siteCount} site{siteCount === 1 ? '' : 's'}
+                    {site.location}
                   </Typography>
-                </Paper>
-              </Grid>
-            );
-          })}
+                )}
+              </Paper>
+            </Grid>
+          ))}
         </Grid>
       )}
-
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingId ? 'Edit Town' : 'Add Town'}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Town Name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Code (e.g. KHI)"
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={!form.name || !form.code}>
-            {editingId ? 'Save Changes' : 'Add Town'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={!!townToDelete} onClose={() => setTownToDelete(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Town</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 3 }}>
-            Are you sure you want to delete <strong>{townToDelete?.name}</strong>? This action
-            cannot be undone.
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={() => setTownToDelete(null)}>Cancel</Button>
-            <Button variant="contained" color="error" onClick={confirmDelete}>
-              Delete
-            </Button>
-          </Box>
-        </DialogContent>
-      </Dialog>
     </Box>
   );
 }

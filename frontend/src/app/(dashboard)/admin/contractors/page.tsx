@@ -25,7 +25,7 @@ import {
 } from '@/store/api/userApi';
 import { useGetProjectsQuery } from '@/store/api/projectApi';
 import { useGetSitesQuery } from '@/store/api/siteApi';
-import { useGetDistrictsQuery, useGetProvincesQuery, useGetTownsQuery } from '@/store/api/provinceApi';
+import { useGetDistrictsQuery, useGetProvincesQuery } from '@/store/api/provinceApi';
 
 const emptyContractor = { name: '', email: '', phone: '' };
 
@@ -35,7 +35,6 @@ export default function ContractorAssignmentsPage() {
   const { data: sitesData } = useGetSitesQuery({ page_size: 500 });
   const { data: provincesData } = useGetProvincesQuery({ page_size: 100 });
   const { data: districtsData } = useGetDistrictsQuery({ page_size: 500 });
-  const { data: townsData } = useGetTownsQuery({ page_size: 500 });
 
   const [createUser] = useCreateUserMutation();
   const [updateUser] = useUpdateUserMutation();
@@ -45,7 +44,6 @@ export default function ContractorAssignmentsPage() {
   const sites = sitesData?.data ?? [];
   const provinces = provincesData?.data ?? [];
   const districts = districtsData?.data ?? [];
-  const towns = townsData?.data ?? [];
 
   const [addOpen, setAddOpen] = useState(false);
   const [newContractor, setNewContractor] = useState(emptyContractor);
@@ -266,11 +264,7 @@ export default function ContractorAssignmentsPage() {
           </Typography>
           {provinces.map((province) => {
             const districtsInProvince = districts.filter((d) => d.province_id === province.id);
-            const sitesInProvince = sites.filter(
-              (s) =>
-                s.province_id === province.id ||
-                towns.some((t) => t.id === s.town_id && t.province_id === province.id)
-            );
+            const sitesInProvince = sites.filter((s) => s.province_id === province.id);
             if (sitesInProvince.length === 0) return null;
 
             return (
@@ -279,11 +273,8 @@ export default function ContractorAssignmentsPage() {
                   {province.name}
                 </Typography>
                 {districtsInProvince.map((district) => {
-                  const townsInDistrict = towns.filter((t) => t.district_id === district.id);
                   const sitesInDistrict = sitesInProvince.filter(
-                    (s) =>
-                      s.district_id === district.id ||
-                      townsInDistrict.some((t) => t.id === s.town_id)
+                    (s) => s.district_id === district.id
                   );
                   if (sitesInDistrict.length === 0) return null;
 
@@ -292,33 +283,21 @@ export default function ContractorAssignmentsPage() {
                       <Typography variant="caption" sx={{ fontWeight: 600 }}>
                         {district.name}
                       </Typography>
-                      {townsInDistrict.map((town) => {
-                        const sitesInTown = sitesInDistrict.filter((s) => s.town_id === town.id);
-                        if (sitesInTown.length === 0) return null;
-
-                        return (
-                          <Box key={town.id} sx={{ pl: 2, mb: 1 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {town.name}
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', pl: 1 }}>
-                              {sitesInTown.map((site) => (
-                                <FormControlLabel
-                                  key={site.id}
-                                  control={
-                                    <Checkbox
-                                      checked={selectedSiteIds.includes(site.id)}
-                                      onChange={() => toggleSite(site.id)}
-                                      size="small"
-                                    />
-                                  }
-                                  label={site.name}
-                                />
-                              ))}
-                            </Box>
-                          </Box>
-                        );
-                      })}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', pl: 1 }}>
+                        {sitesInDistrict.map((site) => (
+                          <FormControlLabel
+                            key={site.id}
+                            control={
+                              <Checkbox
+                                checked={selectedSiteIds.includes(site.id)}
+                                onChange={() => toggleSite(site.id)}
+                                size="small"
+                              />
+                            }
+                            label={site.name}
+                          />
+                        ))}
+                      </Box>
                     </Box>
                   );
                 })}

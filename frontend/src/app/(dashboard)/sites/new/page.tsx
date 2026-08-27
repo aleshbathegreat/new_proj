@@ -31,7 +31,6 @@ export default function NewSitePage() {
         defaultValues={{
           project_id: '',
           district_id: '',
-          town_id: '',
           name: '',
           location: '',
           geofence_radius_m: 500,

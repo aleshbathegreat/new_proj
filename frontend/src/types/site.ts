@@ -18,30 +18,13 @@ export interface District {
   updated_at?: string;
 }
 
-export interface Town {
-  id: string;
-  district_id: string;
-  district_name?: string;
-  province_id: string;
-  province_name?: string;
-  name: string;
-  code: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-/** @deprecated Use Town — kept temporarily for gradual migration */
-export type City = Town;
-
 export interface Site {
   id: string;
   project_id: string;
-  district_id?: string;
-  district_name?: string;
-  town_id?: string;
-  town_name?: string;
-  province_id?: string;
-  province_name?: string;
+  district_id: string;
+  district_name: string;
+  province_id: string;
+  province_name: string;
   name: string;
   location?: string;
   latitude?: number;
@@ -54,8 +37,7 @@ export interface Site {
 
 export interface CreateSiteDto {
   project_id: string;
-  district_id?: string;
-  town_id?: string;
+  district_id: string;
   name: string;
   location?: string;
   latitude?: number;

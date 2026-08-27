@@ -13,7 +13,7 @@ import {
   useUpdateUserMutation,
   type ApiUser,
 } from '@/store/api/userApi';
-import { useGetProvincesQuery, useGetDistrictsQuery, useGetTownsQuery } from '@/store/api/provinceApi';
+import { useGetProvincesQuery, useGetDistrictsQuery } from '@/store/api/provinceApi';
 import { useGetProjectsQuery } from '@/store/api/projectApi';
 import { useGetSitesQuery } from '@/store/api/siteApi';
 import Box from '@mui/material/Box';
@@ -77,7 +77,6 @@ export default function UserManagementPage() {
   const { data: provincesData } = useGetProvincesQuery({ page_size: 100 });
   const { data: projectsData } = useGetProjectsQuery({ page_size: 200 });
   const { data: sitesData } = useGetSitesQuery({ page_size: 500 });
-  const { data: townsData } = useGetTownsQuery({ page_size: 500 });
   const { data: districtsData } = useGetDistrictsQuery({ page_size: 500 });
   const { data: rolesList = [] } = useGetRolesQuery();
 
@@ -90,7 +89,6 @@ export default function UserManagementPage() {
   const provinces = provincesData?.data ?? [];
   const projects = projectsData?.data ?? [];
   const sites = sitesData?.data ?? [];
-  const towns = townsData?.data ?? [];
   const districts = districtsData?.data ?? [];
   const currentUserEmail = useSelector((state: RootState) => state.auth.user?.email);
   const ALL_ROLES = rolesList.map((r) => r.name);
@@ -128,15 +126,11 @@ export default function UserManagementPage() {
 
   const provinceName = (id: string) => provinces.find((p) => p.id === id)?.name ?? id;
 
-  const userTowns = (user: ApiUser) => {
-    const townNames = user.site_ids
-      .map((siteId) => {
-        const site = sites.find((s) => s.id === siteId);
-        if (!site) return undefined;
-        return site.town_name ?? towns.find((t) => t.id === site.town_id)?.name;
-      })
+  const userDistricts = (user: ApiUser) => {
+    const districtNames = user.site_ids
+      .map((siteId) => sites.find((s) => s.id === siteId)?.district_name)
       .filter((name): name is string => !!name);
-    return Array.from(new Set(townNames));
+    return Array.from(new Set(districtNames));
   };
 
   const userProjects = (user: ApiUser) =>
@@ -346,7 +340,7 @@ export default function UserManagementPage() {
         (u) =>
           u.name.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q) ||
-          userTowns(u).some((town) => town.toLowerCase().includes(q))
+          userDistricts(u).some((district) => district.toLowerCase().includes(q))
       );
     }
     if (roleFilter) {
@@ -368,26 +362,23 @@ export default function UserManagementPage() {
     setStatusFilter('');
   };
 
-  // Sites grouped by Province → District → Town for the picker
+  // Sites grouped by Province → District for the picker
   const groupedSiteOptions = useMemo(() => {
     const groups: { label: string; sites: typeof sites }[] = [];
     provinces.forEach((province) => {
       const districtsInProvince = districts.filter((d) => d.province_id === province.id);
       districtsInProvince.forEach((district) => {
-        const townsInDistrict = towns.filter((t) => t.district_id === district.id);
-        townsInDistrict.forEach((town) => {
-          const sitesInTown = sites.filter((s) => s.town_id === town.id);
-          if (sitesInTown.length > 0) {
-            groups.push({
-              label: `${province.name} — ${district.name} — ${town.name}`,
-              sites: sitesInTown,
-            });
-          }
-        });
+        const sitesInDistrict = sites.filter((s) => s.district_id === district.id);
+        if (sitesInDistrict.length > 0) {
+          groups.push({
+            label: `${province.name} — ${district.name}`,
+            sites: sitesInDistrict,
+          });
+        }
       });
     });
     return groups;
-  }, [provinces, districts, towns, sites]);
+  }, [provinces, districts, sites]);
 
   function renderUserDialog() {
     return (
@@ -728,7 +719,7 @@ export default function UserManagementPage() {
 
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
           <TextField
-            label="Search name, email, or town"
+            label="Search name, email, or district"
             size="small"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -774,12 +765,12 @@ export default function UserManagementPage() {
               renderCell: ({ row }) => <Chip label={row.role} size="small" />,
             },
             {
-              field: 'town',
-              headerName: 'Town',
+              field: 'district',
+              headerName: 'District',
               flex: 1,
               renderCell: ({ row }) => {
-                const townNames = userTowns(row);
-                return townNames.length === 0 ? '—' : townNames.join(', ');
+                const districtNames = userDistricts(row);
+                return districtNames.length === 0 ? '—' : districtNames.join(', ');
               },
             },
             {

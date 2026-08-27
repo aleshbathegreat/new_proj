@@ -39,7 +39,7 @@ const moduleCards: ModuleCard[] = [
     available: true,
   },
   {
-    title: 'Province, District & Town Management',
+    title: 'Province & District Management',
     icon: <PublicIcon fontSize="large" />,
     href: '/admin/provinces',
     available: true,

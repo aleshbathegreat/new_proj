@@ -41,6 +41,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import { useUpdateKPICategoryMutation, useDeleteKPICategoryMutation } from '@/store/api/progressApi';
 import { useUpdateSiteProgressTaskMutation, useDeleteSiteProgressTaskMutation } from '@/store/api/progressApi';
 
+/** Sentinel value for the Site dropdown meaning "district-level, no specific site". */
+const DISTRICT_LEVEL_VALUE = 'none';
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -54,7 +57,7 @@ export default function TasksPage() {
 
   const [projectId, setProjectId] = useState('');
   const [districtId, setDistrictId] = useState('');
-  const [siteId, setSiteId] = useState('');
+  const [siteId, setSiteId] = useState(''); // '' = not chosen yet, DISTRICT_LEVEL_VALUE = district-level, otherwise a real site id
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
 
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -101,23 +104,46 @@ export default function TasksPage() {
   );
   const sites = sitesData?.data ?? [];
 
+  const isDistrictLevel = siteId === DISTRICT_LEVEL_VALUE;
+  // Scope is "ready" once project + district + an explicit site choice
+  // (a real site, OR the district-level sentinel) are all set.
+  const scopeReady = !!projectId && !!districtId && !!siteId;
+  const scopeLabel = isDistrictLevel
+    ? districts.find((d) => d.id === districtId)?.name ?? 'district'
+    : sites.find((s) => s.id === siteId)?.name ?? 'site';
+
   const { data: categoriesData, isLoading: loadingCategories, refetch: refetchCategories } =
-    useGetKPICategoriesQuery({ site_id: siteId, page_size: 100 }, { skip: !siteId });
+    useGetKPICategoriesQuery(
+      { project_id: projectId, district_id: districtId, site_id: siteId, page_size: 100 },
+      { skip: !scopeReady }
+    );
   const categories = categoriesData?.data ?? [];
 
   const { data: tasksData, isLoading: loadingTasks, refetch: refetchTasks } =
-    useGetSiteProgressTasksQuery({ site_id: siteId, page_size: 200 }, { skip: !siteId });
-  const allSiteSubtasks = tasksData?.data ?? [];
-  const subtasksInCategory = allSiteSubtasks.filter((t) => t.kpi_category_id === selectedCategoryId);
+    useGetSiteProgressTasksQuery(
+      { project_id: projectId, district_id: districtId, site_id: siteId, page_size: 200 },
+      { skip: !scopeReady }
+    );
+  const allSubtasksInScope = tasksData?.data ?? [];
+  const subtasksInCategory = allSubtasksInScope.filter((t) => t.kpi_category_id === selectedCategoryId);
 
-  // BOQ items for the picker — use the site's BOQ with the most items.
-  const { data: boqsData } = useGetBoqsQuery({ site_id: siteId, page_size: 50 }, { skip: !siteId });
-  const boqForSite = useMemo(() => {
-    const boqs = boqsData?.data ?? [];
+  // BOQ items for the picker. Site-level: use the site's BOQ with the most
+  // items. District-level (no site): use the project's BOQ with the most
+  // items instead, since BOQ is project-scoped, not site-scoped.
+  const { data: siteBoqsData } = useGetBoqsQuery(
+    { site_id: siteId, page_size: 50 },
+    { skip: !siteId || isDistrictLevel }
+  );
+  const { data: projectBoqsData } = useGetBoqsQuery(
+    { project_id: projectId, page_size: 50 },
+    { skip: !projectId || !isDistrictLevel }
+  );
+  const boqForScope = useMemo(() => {
+    const boqs = (isDistrictLevel ? projectBoqsData?.data : siteBoqsData?.data) ?? [];
     if (boqs.length === 0) return null;
     return [...boqs].sort((a, b) => b.items_count - a.items_count)[0];
-  }, [boqsData]);
-  const { data: boqItemsData } = useGetBoqItemsQuery(boqForSite?.id ?? '', { skip: !boqForSite?.id });
+  }, [isDistrictLevel, projectBoqsData, siteBoqsData]);
+  const { data: boqItemsData } = useGetBoqItemsQuery(boqForScope?.id ?? '', { skip: !boqForScope?.id });
   const boqItems = boqItemsData?.data ?? [];
   const selectedBoqItem = boqItems.find((i) => i.id === selectedBoqItemId);
 
@@ -140,9 +166,14 @@ export default function TasksPage() {
   }, [siteId]);
 
   const handleAddCategory = async () => {
-    if (!newCategoryName.trim() || !siteId) return;
+    if (!newCategoryName.trim() || !scopeReady) return;
     try {
-      const created = await createCategory({ site_id: siteId, name: newCategoryName.trim() }).unwrap();
+      const created = await createCategory({
+        project_id: projectId,
+        district_id: districtId,
+        site_id: isDistrictLevel ? null : siteId,
+        name: newCategoryName.trim(),
+      }).unwrap();
       setToast({ open: true, message: `MODULE "${created.name}" created`, severity: 'success' });
       setNewCategoryName('');
       setAddingCategory(false);
@@ -240,7 +271,7 @@ export default function TasksPage() {
   };
 
   const handleCreateSubtask = async () => {
-    if (!subtaskName.trim() || !siteId || !selectedCategoryId) return;
+    if (!subtaskName.trim() || !scopeReady || !selectedCategoryId) return;
     if (linkMode === 'boq' && !selectedBoqItemId) {
       setToast({ open: true, message: 'Select a BOQ item, or switch to manual entry.', severity: 'warning' });
       return;
@@ -267,7 +298,9 @@ export default function TasksPage() {
         setToast({ open: true, message: 'Item updated', severity: 'success' });
       } else {
         await createSubtask({
-          site_id: siteId,
+          project_id: projectId,
+          district_id: districtId,
+          site_id: isDistrictLevel ? null : siteId,
           kpi_category_id: selectedCategoryId,
           key: `${slugify(subtaskName)}_${Date.now().toString(36)}`,
           name: subtaskName.trim(),
@@ -304,7 +337,8 @@ export default function TasksPage() {
         Tasks
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Define Module and Items per site. These become selectable in Daily Progress.
+        Define Module and Items per site, or at the district level when a project has no sites yet.
+        These become selectable in Work Progress.
       </Typography>
 
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -346,12 +380,15 @@ export default function TasksPage() {
             select
             label="Site"
             size="small"
-            sx={{ minWidth: 200 }}
+            sx={{ minWidth: 260 }}
             value={siteId}
             onChange={(e) => setSiteId(e.target.value)}
             disabled={!districtId || loadingSites}
           >
             <MenuItem value="">Select site</MenuItem>
+            <MenuItem value={DISTRICT_LEVEL_VALUE}>
+              <em>— District level (no specific site) —</em>
+            </MenuItem>
             {sites.map((s) => (
               <MenuItem key={s.id} value={s.id}>
                 {s.name}
@@ -361,8 +398,10 @@ export default function TasksPage() {
         </Stack>
       </Paper>
 
-      {!siteId ? (
-        <Alert severity="info">Select a Project, District, and Site to manage its tasks.</Alert>
+      {!scopeReady ? (
+        <Alert severity="info">
+          Select a Project and District, then either pick a Site or choose &quot;District level&quot; to manage its tasks.
+        </Alert>
       ) : (
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
           {/* KPI Categories panel */}
@@ -397,7 +436,7 @@ export default function TasksPage() {
               <PageSkeleton />
             ) : categories.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No MODULES yet for this site.
+                No MODULES yet for this {isDistrictLevel ? 'district' : 'site'}.
               </Typography>
             ) : (
               <Stack spacing={1}>
@@ -503,8 +542,6 @@ export default function TasksPage() {
                     renderCell: ({ row }: { row: SiteProgressTask }) =>
                       (row.attributes as Record<string, string>)?.notes || '—',
                   },
-
-
                   {
                     field: 'actions',
                     headerName: '',
@@ -531,27 +568,27 @@ export default function TasksPage() {
       )}
 
       <Dialog open={subtaskDialogOpen} onClose={() => setSubtaskDialogOpen(false)} maxWidth="sm" fullWidth>
-              <DialogTitle>{editingSubtaskId ? 'Edit Item' : 'New Item'}</DialogTitle>
-              <DialogContent>
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                  <Autocomplete
-                    freeSolo
-                    options={itemCatalog.map((i) => i.name)}
-                    inputValue={subtaskName}
-                    onInputChange={(_, value) => setSubtaskName(value)}
-                    onChange={(_, value) => {
-                      if (value) {
-                        const matched = itemCatalog.find((i) => i.name === value);
-                        if (matched?.default_unit && linkMode === 'manual') {
-                          setManualUnit(matched.default_unit);
-                        }
-                      }
-                    }}
-                    fullWidth
-                    renderInput={(params) => (
-                      <TextField {...params} label="Item name" autoFocus />
-                    )}
-                  />
+        <DialogTitle>{editingSubtaskId ? 'Edit Item' : 'New Item'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Autocomplete
+              freeSolo
+              options={itemCatalog.map((i) => i.name)}
+              inputValue={subtaskName}
+              onInputChange={(_, value) => setSubtaskName(value)}
+              onChange={(_, value) => {
+                if (value) {
+                  const matched = itemCatalog.find((i) => i.name === value);
+                  if (matched?.default_unit && linkMode === 'manual') {
+                    setManualUnit(matched.default_unit);
+                  }
+                }
+              }}
+              fullWidth
+              renderInput={(params) => (
+                <TextField {...params} label="Item name" autoFocus />
+              )}
+            />
 
             <RadioGroup
               row
@@ -563,49 +600,51 @@ export default function TasksPage() {
             </RadioGroup>
 
             {linkMode === 'boq' ? (
-                          boqItems.length === 0 ? (
-                            <Alert severity="warning">No BOQ items found for this site.</Alert>
-                          ) : (
-                            <TextField
-                              select
-                              label="BOQ item"
-                              value={selectedBoqItemId}
-                              onChange={(e) => setSelectedBoqItemId(e.target.value)}
-                              fullWidth
-                              helperText={
-                                selectedBoqItem
-                                  ? `Planned: ${selectedBoqItem.qty}`
-                                  : undefined
-                              }
-                            >
-                              {boqItems.map((item) => (
-                                <MenuItem key={item.id} value={item.id}>
-                                  {item.item} — {item.item_description}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          )
-                        ) : (
-                          <TextField
-                            label="Planned quantity"
-                            type="number"
-                            value={manualPlannedQty}
-                            onChange={(e) => setManualPlannedQty(e.target.value)}
-                            fullWidth
-                          />
-                        )}
+              boqItems.length === 0 ? (
+                <Alert severity="warning">
+                  No BOQ items found for this {isDistrictLevel ? 'project' : 'site'}.
+                </Alert>
+              ) : (
+                <TextField
+                  select
+                  label="BOQ item"
+                  value={selectedBoqItemId}
+                  onChange={(e) => setSelectedBoqItemId(e.target.value)}
+                  fullWidth
+                  helperText={
+                    selectedBoqItem
+                      ? `Planned: ${selectedBoqItem.qty}`
+                      : undefined
+                  }
+                >
+                  {boqItems.map((item) => (
+                    <MenuItem key={item.id} value={item.id}>
+                      {item.item} — {item.item_description}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )
+            ) : (
+              <TextField
+                label="Planned quantity"
+                type="number"
+                value={manualPlannedQty}
+                onChange={(e) => setManualPlannedQty(e.target.value)}
+                fullWidth
+              />
+            )}
 
-                        <TextField
-                          label="Additional Notes"
-                          value={itemNotes}
-                          onChange={(e) => setItemNotes(e.target.value)}
-                          fullWidth
-                          multiline
-                          minRows={2}
-                          placeholder="Any extra detail about this item"
-                        />
-                      </Stack>
-                    </DialogContent>
+            <TextField
+              label="Additional Notes"
+              value={itemNotes}
+              onChange={(e) => setItemNotes(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              placeholder="Any extra detail about this item"
+            />
+          </Stack>
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setSubtaskDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleCreateSubtask} disabled={saving}>

@@ -30,11 +30,7 @@ import {
   useGetSitesQuery,
   useUpdateSiteMutation,
 } from '@/store/api/siteApi';
-import {
-  useGetDistrictsQuery,
-  useGetProvincesQuery,
-  useGetTownsQuery,
-} from '@/store/api/provinceApi';
+import { useGetDistrictsQuery, useGetProvincesQuery } from '@/store/api/provinceApi';
 
 export default function SitesPage() {
   const router = useRouter();
@@ -44,7 +40,6 @@ export default function SitesPage() {
   const { data: sitesData, isLoading } = useGetSitesQuery({ page_size: 200 });
   const { data: provincesData } = useGetProvincesQuery({ page_size: 100 });
   const { data: districtsData } = useGetDistrictsQuery({ page_size: 500 });
-  const { data: townsData } = useGetTownsQuery({ page_size: 500 });
   const { data: boqsData } = useGetBoqsQuery({ page_size: 100 });
 
   const [createSite] = useCreateSiteMutation();
@@ -53,7 +48,6 @@ export default function SitesPage() {
 
   const provinces = provincesData?.data ?? [];
   const districts = districtsData?.data ?? [];
-  const towns = townsData?.data ?? [];
   const sites = sitesData?.data ?? [];
   const apiBoqs = boqsData?.data ?? [];
 
@@ -66,14 +60,8 @@ export default function SitesPage() {
     document.title = 'Sites | SC-GIMS';
   }, []);
 
-  const siteProvinceId = (site: Site) =>
-    site.province_id ?? towns.find((t) => t.id === site.town_id)?.province_id;
-
-  const siteDistrictId = (site: Site) =>
-    site.district_id ?? towns.find((t) => t.id === site.town_id)?.district_id;
-
   const visibleSites = sites.filter((site) =>
-    isWithinScope({ provinceIds, siteIds }, siteProvinceId(site), site.id)
+    isWithinScope({ provinceIds, siteIds }, site.province_id, site.id)
   );
 
   const openCreate = () => {
@@ -142,7 +130,7 @@ export default function SitesPage() {
       </Box>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Sites are grouped by province, district, and town.
+        Sites are grouped by province and district.
       </Typography>
 
       {blockedMessage && (
@@ -154,7 +142,7 @@ export default function SitesPage() {
       {provinces.map((province) => {
         const districtsInProvince = districts.filter((d) => d.province_id === province.id);
         const sitesInProvince = visibleSites.filter(
-          (s) => siteProvinceId(s) === province.id
+          (s) => s.province_id === province.id
         );
 
         if (sitesInProvince.length === 0) return null;
@@ -166,9 +154,8 @@ export default function SitesPage() {
             </Typography>
 
             {districtsInProvince.map((district) => {
-              const townsInDistrict = towns.filter((t) => t.district_id === district.id);
               const sitesInDistrict = sitesInProvince.filter(
-                (s) => siteDistrictId(s) === district.id
+                (s) => s.district_id === district.id
               );
               if (sitesInDistrict.length === 0) return null;
 
@@ -178,84 +165,72 @@ export default function SitesPage() {
                     {district.name}
                   </Typography>
 
-                  {townsInDistrict.map((town) => {
-                    const sitesInTown = sitesInDistrict.filter((s) => s.town_id === town.id);
-                    if (sitesInTown.length === 0) return null;
-
-                    return (
-                      <Box key={town.id} sx={{ mb: 2, pl: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                          {town.name}
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          {sitesInTown.map((site) => (
-                            <Box
-                              key={site.id}
-                              sx={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                p: 1.5,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                borderRadius: 1,
-                              }}
-                            >
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Typography
-                                  sx={{
-                                    fontWeight: 600,
-                                    color: 'primary.main',
-                                    cursor: 'pointer',
-                                    textDecoration: 'underline',
-                                  }}
-                                  onClick={() => router.push(`/sites/${site.id}`)}
-                                >
-                                  {site.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {site.location}
-                                </Typography>
-                                <StatusChip status={site.status} />
-                              </Box>
-                              <RowActionsMenu
-                                actions={[
-                                  {
-                                    key: 'view',
-                                    label: 'View',
-                                    icon: <VisibilityIcon fontSize="small" />,
-                                    onClick: () => router.push(`/sites/${site.id}`),
-                                  },
-                                  ...(canUpdate
-                                    ? [
-                                        {
-                                          key: 'edit',
-                                          label: 'Edit',
-                                          icon: <EditIcon fontSize="small" />,
-                                          onClick: () => openEdit(site),
-                                        },
-                                      ]
-                                    : []),
-                                  ...(canDelete
-                                    ? [
-                                        {
-                                          key: 'delete',
-                                          label: 'Delete',
-                                          icon: <DeleteIcon fontSize="small" />,
-                                          destructive: true,
-                                          dividerBefore: true,
-                                          onClick: () => handleDelete(site),
-                                        },
-                                      ]
-                                    : []),
-                                ]}
-                              />
-                            </Box>
-                          ))}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {sitesInDistrict.map((site) => (
+                      <Box
+                        key={site.id}
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          p: 1.5,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography
+                            sx={{
+                              fontWeight: 600,
+                              color: 'primary.main',
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                            }}
+                            onClick={() => router.push(`/sites/${site.id}`)}
+                          >
+                            {site.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {site.location}
+                          </Typography>
+                          <StatusChip status={site.status} />
                         </Box>
+                        <RowActionsMenu
+                          actions={[
+                            {
+                              key: 'view',
+                              label: 'View',
+                              icon: <VisibilityIcon fontSize="small" />,
+                              onClick: () => router.push(`/sites/${site.id}`),
+                            },
+                            ...(canUpdate
+                              ? [
+                                  {
+                                    key: 'edit',
+                                    label: 'Edit',
+                                    icon: <EditIcon fontSize="small" />,
+                                    onClick: () => openEdit(site),
+                                  },
+                                ]
+                              : []),
+                            ...(canDelete
+                              ? [
+                                  {
+                                    key: 'delete',
+                                    label: 'Delete',
+                                    icon: <DeleteIcon fontSize="small" />,
+                                    destructive: true,
+                                    dividerBefore: true,
+                                    onClick: () => handleDelete(site),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       </Box>
-                    );
-                  })}
+                    ))}
+                  </Box>
                 </Box>
               );
             })}
@@ -271,8 +246,7 @@ export default function SitesPage() {
               editingSite
                 ? {
                     project_id: editingSite.project_id,
-                    district_id: siteDistrictId(editingSite) ?? '',
-                    town_id: editingSite.town_id,
+                    district_id: editingSite.district_id,
                     name: editingSite.name,
                     location: editingSite.location,
                     latitude: editingSite.latitude,
@@ -282,7 +256,6 @@ export default function SitesPage() {
                 : {
                     project_id: '',
                     district_id: '',
-                    town_id: '',
                     name: '',
                     location: '',
                     geofence_radius_m: 500,

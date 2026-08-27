@@ -6,7 +6,6 @@ export interface ProgressKpiField {
   value_type: KpiValueType;
 }
 
-/** Admin catalog entry — mirrors ProgressTaskTemplate. */
 export interface ProgressTaskTemplate {
   id: string;
   key: string;
@@ -20,18 +19,16 @@ export interface ProgressTaskTemplate {
   updated_at: string;
 }
 
-export type ProgressTaskTemplateWrite = Omit<
-  ProgressTaskTemplate,
-  'id' | 'created_at' | 'updated_at'
->;
+export type ProgressTaskTemplateWrite = Omit<ProgressTaskTemplate, 'id' | 'created_at' | 'updated_at'>;
 
-/** Per-site task — mirrors SiteProgressTask (linked to project/site/BOQ). */
 export interface SiteProgressTask {
   id: string;
-  site_id: string;
-  site_name: string;
   project_id: string;
   project_name: string;
+  district_id: string;
+  district_name: string;
+  site_id: string | null;
+  site_name: string | null;
   template_id: string | null;
   kpi_category_id: string | null;
   kpi_category_name: string | null;
@@ -55,7 +52,9 @@ export interface SiteProgressTask {
 }
 
 export type SiteProgressTaskWrite = {
-  site_id: string;
+  project_id: string;
+  district_id: string;
+  site_id: string | null;
   template_id?: string | null;
   kpi_category_id?: string | null;
   boq_id?: string | null;
@@ -71,13 +70,14 @@ export type SiteProgressTaskWrite = {
   attributes?: Record<string, unknown>;
 };
 
-/** Daily log — mirrors DailyProgressEntry. */
 export interface DailyProgressEntry {
   id: string;
-  site_id: string;
-  site_name: string;
+  site_id: string | null;
+  site_name: string | null;
   project_id: string;
   project_name: string;
+  district_id: string;
+  district_name: string;
   site_task_id: string;
   task_key: string;
   task_name: string;
@@ -98,7 +98,6 @@ export interface DailyProgressEntry {
 }
 
 export type DailyProgressWrite = {
-  site_id: string;
   site_task_id: string;
   date: string;
   quantity: number;
@@ -108,8 +107,12 @@ export type DailyProgressWrite = {
 
 export interface KPICategory {
   id: string;
-  site_id: string;
-  site_name: string;
+  project_id: string;
+  project_name: string;
+  district_id: string;
+  district_name: string;
+  site_id: string | null;
+  site_name: string | null;
   name: string;
   description: string;
   sort_order: number;
@@ -119,7 +122,9 @@ export interface KPICategory {
 }
 
 export type KPICategoryWrite = {
-  site_id: string;
+  project_id: string;
+  district_id: string;
+  site_id: string | null;
   name: string;
   description?: string;
   sort_order?: number;
@@ -136,5 +141,3 @@ export interface ItemCatalogEntry {
   name: string;
   default_unit: string;
 }
-
-
